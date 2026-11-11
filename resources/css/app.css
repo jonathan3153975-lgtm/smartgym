@@ -2,8 +2,374 @@
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
+@source '../views/**/*.blade.php';
+@source '../js/**/*.js';
+
+/* Enable class-based dark mode for Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* SmartGym Custom Color Palette */
+    --color-bg-primary: #090D18;
+    --color-bg-secondary: #111827;
+    --color-surface: #192337;
+    --color-surface-elevated: #222F46;
+    --color-cyan-neon: #00E5FF;
+    --color-purple-neon: #A855F7;
+    --color-lime-green: #C6FF00;
+    --color-green: #00E676;
+    --color-yellow: #FFB300;
+    --color-red: #FF3864;
+    --color-text-primary: #F1F5F9;
+    --color-text-secondary: #A6B0C3;
+    --color-border: #2A3850;
+
+    /* Semantic color mappings */
+    --color-primary: var(--color-cyan-neon);
+    --color-secondary: var(--color-purple-neon);
+    --color-accent: var(--color-lime-green);
+    --color-success: var(--color-green);
+    --color-warning: var(--color-yellow);
+    --color-danger: var(--color-red);
+    --color-background: var(--color-bg-primary);
+    --color-surface: var(--color-surface);
+    --color-text: var(--color-text-primary);
+    --color-text-muted: var(--color-text-secondary);
+    --color-border: var(--color-border);
+}
+
+/* Light mode overrides (for theme toggle) */
+:root:not(.dark) {
+    --color-bg-primary: #f8fafc;
+    --color-bg-secondary: #ffffff;
+    --color-surface: #f1f5f9;
+    --color-surface-elevated: #ffffff;
+    --color-text-primary: #0f172a;
+    --color-text-secondary: #64748b;
+    --color-border: #e2e8f0;
+    --color-cyan-neon: #0891b2;
+    --color-purple-neon: #7c3aed;
+    --color-lime-green: #84cc16;
+    --color-green: #16a34a;
+    --color-yellow: #ca8a04;
+    --color-red: #dc2626;
+}
+
+/* Button foreground colors (overridden per network theme) */
+:root {
+    --color-on-primary: #090d18;
+    --color-on-secondary: #ffffff;
+    --color-on-accent: #090d18;
+}
+
+:root:not(.dark) {
+    --color-on-primary: #ffffff;
+    --color-on-secondary: #ffffff;
+    --color-on-accent: #0f172a;
+}
+
+/* Global styles */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-secondary);
+}
+
+/* Focus styles */
+*:focus-visible {
+    outline: 2px solid var(--color-cyan-neon);
+    outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+    background-color: var(--color-cyan-neon);
+    color: var(--color-bg-primary);
+}
+
+/* Utility classes for the theme */
+.bg-primary { background-color: var(--color-bg-primary); }
+.bg-secondary { background-color: var(--color-bg-secondary); }
+.bg-surface { background-color: var(--color-surface); }
+.bg-surface-elevated { background-color: var(--color-surface-elevated); }
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-cyan { color: var(--color-cyan-neon); }
+.text-purple { color: var(--color-purple-neon); }
+.text-lime { color: var(--color-lime-green); }
+.text-green { color: var(--color-green); }
+.text-yellow { color: var(--color-yellow); }
+.text-red { color: var(--color-red); }
+.border-custom { border-color: var(--color-border); }
+.border-cyan { border-color: var(--color-cyan-neon); }
+.border-purple { border-color: var(--color-purple-neon); }
+
+.btn-primary {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+    background-color: var(--color-cyan-neon);
+    color: var(--color-on-primary);
+}
+
+.btn-primary:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 229, 255, 0.3);
+}
+
+.btn-secondary {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+    background-color: var(--color-purple-neon);
+    color: var(--color-on-secondary);
+}
+
+.btn-secondary:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
+}
+
+.btn-accent {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+    background-color: var(--color-lime-green);
+    color: var(--color-on-accent);
+}
+
+.btn-accent:hover {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(198, 255, 0, 0.3);
+}
+
+.btn-outline {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 border-2;
+    border-color: var(--color-cyan-neon);
+    color: var(--color-cyan-neon);
+    background-color: transparent;
+}
+
+.btn-outline:hover {
+    background-color: var(--color-cyan-neon);
+    color: var(--color-bg-primary);
+}
+
+.btn-danger {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+    background-color: var(--color-red);
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #e02a56;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 56, 100, 0.3);
+}
+
+.card {
+    @apply rounded-xl p-6 transition-all duration-200;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+}
+
+.card:hover {
+    border-color: var(--color-cyan-neon);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.input-field {
+    @apply w-full px-4 py-3 rounded-lg transition-all duration-200;
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+}
+
+.input-field:focus {
+    border-color: var(--color-cyan-neon);
+    box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.1);
+    outline: none;
+}
+
+.input-field::placeholder {
+    color: var(--color-text-secondary);
+}
+
+/* Inputs with a leading icon and/or trailing action */
+.input-search {
+    padding-left: 2.75rem;
+    padding-right: 2.75rem;
+}
+
+.label-field {
+    @apply block mb-2 font-medium;
+    color: var(--color-text-primary);
+}
+
+.badge {
+    @apply px-3 py-1 rounded-full text-xs font-medium;
+}
+
+.badge-success { background-color: rgba(0, 230, 118, 0.2); color: var(--color-green); }
+.badge-warning { background-color: rgba(255, 179, 0, 0.2); color: var(--color-yellow); }
+.badge-danger { background-color: rgba(255, 56, 100, 0.2); color: var(--color-red); }
+.badge-info { background-color: rgba(0, 229, 255, 0.2); color: var(--color-cyan-neon); }
+.badge-secondary { background-color: rgba(168, 85, 247, 0.2); color: var(--color-purple-neon); }
+
+.table-container {
+    @apply overflow-x-auto rounded-xl;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+}
+
+.table-custom {
+    @apply w-full text-sm;
+}
+
+.table-custom thead {
+    background-color: var(--color-bg-secondary);
+}
+
+.table-custom th {
+    @apply px-4 py-3 text-left font-medium;
+    color: var(--color-text-secondary);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.table-custom td {
+    @apply px-4 py-3;
+    color: var(--color-text-primary);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.table-custom tbody tr {
+    transition: background-color 0.2s;
+}
+
+.table-custom tbody tr:hover {
+    background-color: var(--color-surface-elevated);
+}
+
+.table-custom tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center;
+    background-color: rgba(9, 13, 24, 0.8);
+    backdrop-filter: blur(4px);
+}
+
+/* Unlayered custom classes have higher priority than Tailwind's utilities layer,
+   so `.hidden` must be reinforced explicitly for overlays. */
+.modal-overlay.hidden {
+    display: none;
+}
+
+.modal-content {
+    @apply rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto;
+    background-color: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.modal-content-lg {
+    max-width: 52rem;
+}
+
+.sidebar {
+    @apply fixed top-0 left-0 h-full z-40 transition-all duration-300;
+    width: 280px;
+    background-color: var(--color-bg-secondary);
+    border-right: 1px solid var(--color-border);
+}
+
+.navbar {
+    @apply fixed top-0 right-0 left-0 z-50;
+    height: 64px;
+    background-color: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.main-content {
+    @apply pt-16 pl-0 transition-all duration-300;
+    margin-left: 280px;
+    min-height: 100vh;
+    position: relative;
+    z-index: 10;
+}
+
+/* Prevent the page from scrolling while the mobile sidebar is open */
+body.sidebar-open {
+    overflow: hidden;
+}
+
+/* Desktop: sidebar is permanently visible next to the navbar */
+@media (min-width: 1024px) {
+    .sidebar {
+        transform: translateX(0);
+    }
+
+    .navbar {
+        left: 280px;
+    }
+}
+
+/* Mobile: Sidebar off-canvas, above every other element */
+@media (max-width: 1023.98px) {
+    .sidebar {
+        width: 90vw;
+        max-width: 90vw;
+        z-index: 60;
+        transform: translateX(-100%);
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        margin-left: 0;
+    }
+
+    /* Ensure search input truncates properly on mobile */
+    .navbar .flex-1.min-w-0 {
+        min-width: 0;
+    }
+}
+
+/* Mobile: prevent horizontal overflow */
+@media (max-width: 640px) {
+    .navbar {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .navbar .flex-1 {
+        min-width: 0;
+    }
 }
