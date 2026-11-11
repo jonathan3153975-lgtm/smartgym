@@ -19,6 +19,11 @@
                         <td>
                             <div class="font-medium">{{ $user->name }}</div>
                             <div class="text-xs text-text-secondary">{{ $user->email }}</div>
+                            @if ($user->person)
+                                <div class="mt-0.5 text-xs text-cyan">
+                                    <i class="fas fa-id-card mr-1"></i>{{ $user->person->name }}
+                                </div>
+                            @endif
                         </td>
                         <td>
                             @if ($vinculo?->role)
@@ -96,6 +101,11 @@
                     <div class="min-w-0">
                         <p class="font-semibold truncate">{{ $user->name }}</p>
                         <p class="text-xs text-text-secondary truncate">{{ $user->email }}</p>
+                        @if ($user->person)
+                            <p class="mt-0.5 text-xs text-cyan truncate">
+                                <i class="fas fa-id-card mr-1"></i>{{ $user->person->name }}
+                            </p>
+                        @endif
                     </div>
                     @if ($vinculo?->status === 'active')
                         <span class="badge badge-success whitespace-nowrap">Ativo</span>

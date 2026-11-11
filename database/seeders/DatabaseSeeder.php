@@ -4,12 +4,14 @@ namespace Database\Seeders;
 
 use App\Models\Network;
 use App\Models\Permission;
+use App\Models\Person;
 use App\Models\Region;
 use App\Models\Role;
 use App\Models\SaasPlan;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\UserVinculo;
+use App\Support\BrazilianDocument;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -25,6 +27,7 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,
             RoleSeeder::class,
             DeveloperUserSeeder::class,
+            PeopleSeeder::class,
         ]);
     }
 }
@@ -186,6 +189,13 @@ class PermissionSeeder extends Seeder
             ['key' => 'students.export', 'name' => 'Exportar alunos', 'module' => 'students', 'action' => 'export'],
             ['key' => 'students.import', 'name' => 'Importar alunos', 'module' => 'students', 'action' => 'import'],
 
+            // People permissions
+            ['key' => 'people.manage', 'name' => 'Gerenciar pessoas', 'module' => 'people', 'action' => 'manage'],
+            ['key' => 'people.view', 'name' => 'Visualizar pessoas', 'module' => 'people', 'action' => 'view'],
+            ['key' => 'people.create', 'name' => 'Criar pessoas', 'module' => 'people', 'action' => 'create'],
+            ['key' => 'people.edit', 'name' => 'Editar pessoas', 'module' => 'people', 'action' => 'edit'],
+            ['key' => 'people.delete', 'name' => 'Excluir pessoas', 'module' => 'people', 'action' => 'delete'],
+
             // Future module permissions (placeholders)
             ['key' => 'plans.manage', 'name' => 'Gerenciar planos', 'module' => 'plans', 'action' => 'manage'],
             ['key' => 'classes.manage', 'name' => 'Gerenciar turmas', 'module' => 'classes', 'action' => 'manage'],
@@ -340,6 +350,11 @@ class RoleSeeder extends Seeder
             $allPermissions->whereIn('key', [
                 'regions.manage',
                 'units.manage',
+                'people.manage',
+                'people.view',
+                'people.create',
+                'people.edit',
+                'people.delete',
                 'users.manage',
                 'roles.manage',
                 'network.settings',
@@ -357,6 +372,7 @@ class RoleSeeder extends Seeder
             $allPermissions->whereIn('key', [
                 'regions.view',
                 'units.view',
+                'people.view',
                 'users.view',
                 'students.view',
                 'students.export',
@@ -368,6 +384,11 @@ class RoleSeeder extends Seeder
         $regionAdmin->permissions()->sync(
             $allPermissions->whereIn('key', [
                 'units.manage',
+                'people.manage',
+                'people.view',
+                'people.create',
+                'people.edit',
+                'people.delete',
                 'users.manage',
                 'students.view',
                 'students.create',
@@ -381,6 +402,7 @@ class RoleSeeder extends Seeder
         $regionManager->permissions()->sync(
             $allPermissions->whereIn('key', [
                 'units.view',
+                'people.view',
                 'users.view',
                 'students.view',
                 'students.export',
@@ -390,6 +412,11 @@ class RoleSeeder extends Seeder
         // Unit Admin - manage users, students, settings in unit
         $unitAdmin->permissions()->sync(
             $allPermissions->whereIn('key', [
+                'people.manage',
+                'people.view',
+                'people.create',
+                'people.edit',
+                'people.delete',
                 'users.manage',
                 'students.view',
                 'students.create',
@@ -403,6 +430,7 @@ class RoleSeeder extends Seeder
         // Unit Manager - view students, create/edit
         $unitManager->permissions()->sync(
             $allPermissions->whereIn('key', [
+                'people.view',
                 'students.view',
                 'students.create',
                 'students.edit',
@@ -413,6 +441,9 @@ class RoleSeeder extends Seeder
         // Receptionist - create/view students
         $receptionist->permissions()->sync(
             $allPermissions->whereIn('key', [
+                'people.view',
+                'people.create',
+                'people.edit',
                 'students.view',
                 'students.create',
                 'students.edit',
@@ -422,6 +453,7 @@ class RoleSeeder extends Seeder
         // Instructor - view students
         $instructor->permissions()->sync(
             $allPermissions->whereIn('key', [
+                'people.view',
                 'students.view',
             ])->pluck('id')
         );
@@ -429,10 +461,118 @@ class RoleSeeder extends Seeder
         // Sales - create/view students
         $sales->permissions()->sync(
             $allPermissions->whereIn('key', [
+                'people.view',
+                'people.create',
+                'people.edit',
                 'students.view',
                 'students.create',
                 'students.edit',
             ])->pluck('id')
+        );
+    }
+}
+
+class PeopleSeeder extends Seeder
+{
+    /**
+     * Valid CPF numbers used to seed staff and client records.
+     *
+     * @var array<int, string>
+     */
+    private const CPF_POOL = [
+        '10000013773',
+        '10000027480',
+        '10000041122',
+        '10000054887',
+        '10000068594',
+        '10000082236',
+        '10000095990',
+        '10000109614',
+    ];
+
+    public function run(): void
+    {
+        $users = User::with('vinculos')->orderBy('id')->get();
+
+        foreach ($users as $index => $user) {
+            if ($user->person_id) {
+                continue;
+            }
+
+            $vinculo = $user->vinculos->firstWhere('status', 'active') ?? $user->vinculos->first();
+            $document = self::CPF_POOL[$index % count(self::CPF_POOL)];
+
+            $person = Person::firstOrCreate(
+                [
+                    'network_id' => $vinculo?->network_id,
+                    'document_raw' => $document,
+                ],
+                [
+                    'network_id' => $vinculo?->network_id,
+                    'unit_id' => $vinculo?->unit_id,
+                    'person_type' => 'individual',
+                    'category' => 'staff',
+                    'name' => $user->name,
+                    'document' => BrazilianDocument::formatCpf($document),
+                    'birth_date' => null,
+                    'email' => $user->email,
+                    'status' => 'active',
+                    'created_by' => $user->id,
+                    'updated_by' => $user->id,
+                ]
+            );
+
+            $user->forceFill(['person_id' => $person->id])->save();
+        }
+
+        $network = Network::where('slug', 'smartgym-demo')->first();
+        $unit = Unit::where('identifier', 'UNID001')->first();
+
+        if (! $network || ! $unit) {
+            return;
+        }
+
+        Person::firstOrCreate(
+            [
+                'network_id' => $network->id,
+                'document_raw' => '10000123366',
+            ],
+            [
+                'network_id' => $network->id,
+                'unit_id' => $unit->id,
+                'person_type' => 'individual',
+                'category' => 'client',
+                'name' => 'Maria Souza',
+                'document' => BrazilianDocument::formatCpf('10000123366'),
+                'birth_date' => '1992-05-18',
+                'email' => 'maria.souza@exemplo.com',
+                'phone' => '(41) 99999-1000',
+                'whatsapp' => '(41) 99999-1000',
+                'city' => 'Curitiba',
+                'state' => 'PR',
+                'status' => 'active',
+            ]
+        );
+
+        Person::firstOrCreate(
+            [
+                'network_id' => $network->id,
+                'document_raw' => '11222333000181',
+            ],
+            [
+                'network_id' => $network->id,
+                'unit_id' => $unit->id,
+                'person_type' => 'company',
+                'category' => 'client',
+                'name' => 'Academia Parceira LTDA',
+                'trade_name' => 'Academia Parceira',
+                'document' => BrazilianDocument::formatCnpj('11222333000181'),
+                'state_registration' => '1234567890',
+                'legal_representative_name' => 'Carlos Pereira',
+                'email' => 'contato@academiaparceira.com.br',
+                'phone' => '(41) 3333-2000',
+                'status' => 'active',
+            ]
         );
     }
 }

@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Network;
 use App\Models\Permission;
+use App\Models\Person;
 use App\Models\Region;
 use App\Models\Role;
 use App\Models\Unit;
@@ -130,6 +131,42 @@ class TenantContext
         }
 
         return $query;
+    }
+
+    /**
+     * Apply the network/region/unit scope to a people query.
+     */
+    public function scopePeople(Builder $query): Builder
+    {
+        if ($this->isPlatform()) {
+            return $query;
+        }
+
+        $networkId = $this->networkId();
+
+        if (! $networkId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $query->where('network_id', $networkId);
+
+        if ($unitId = $this->unitId()) {
+            return $query->where('unit_id', $unitId);
+        }
+
+        if ($regionId = $this->regionId()) {
+            return $query->whereHas('unit', fn ($unitQuery) => $unitQuery->where('region_id', $regionId));
+        }
+
+        return $query;
+    }
+
+    /**
+     * People visible to the current user.
+     */
+    public function peopleQuery(): Builder
+    {
+        return $this->scopePeople(Person::query())->orderBy('name');
     }
 
     /**
@@ -318,6 +355,29 @@ class TenantContext
         }
 
         return $this->scopeUserVinculos($user->vinculos()->getQuery())->exists();
+    }
+
+    public function canAccessPerson(Person $person): bool
+    {
+        if ($this->isPlatform()) {
+            return true;
+        }
+
+        if ($person->network_id !== $this->networkId()) {
+            return false;
+        }
+
+        if ($unitId = $this->unitId()) {
+            return (int) $person->unit_id === $unitId;
+        }
+
+        if ($regionId = $this->regionId()) {
+            $person->loadMissing('unit');
+
+            return (int) $person->unit?->region_id === $regionId;
+        }
+
+        return true;
     }
 
     public function canDeleteUser(User $user): bool

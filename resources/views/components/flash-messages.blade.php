@@ -1,21 +1,21 @@
 @php
     $flashTypes = [
-        'success' => ['icon' => 'success', 'color' => 'var(--color-green)', 'bg' => 'rgba(0, 230, 118, 0.1)', 'border' => 'var(--color-green)'],
-        'error' => ['icon' => 'error', 'color' => 'var(--color-red)', 'bg' => 'rgba(255, 56, 100, 0.1)', 'border' => 'var(--color-red)'],
-        'warning' => ['icon' => 'warning', 'color' => 'var(--color-yellow)', 'bg' => 'rgba(255, 179, 0, 0.1)', 'border' => 'var(--color-yellow)'],
-        'info' => ['icon' => 'info', 'color' => 'var(--color-cyan-neon)', 'bg' => 'rgba(0, 229, 255, 0.1)', 'border' => 'var(--color-cyan-neon)'],
+        'success' => ['icon' => 'success', 'color' => 'var(--color-success)', 'soft' => 'var(--color-success-soft)', 'on' => 'var(--color-on-success)'],
+        'error' => ['icon' => 'error', 'color' => 'var(--color-danger)', 'soft' => 'var(--color-danger-soft)', 'on' => 'var(--color-on-danger)'],
+        'warning' => ['icon' => 'warning', 'color' => 'var(--color-warning)', 'soft' => 'var(--color-warning-soft)', 'on' => 'var(--color-on-warning)'],
+        'info' => ['icon' => 'info', 'color' => 'var(--color-info)', 'soft' => 'var(--color-info-soft)', 'on' => 'var(--color-on-info)'],
     ];
 @endphp
 
 @foreach ($flashTypes as $type => $config)
     @if (session()->has($type))
         <div class="fixed top-20 right-4 z-50 max-w-sm animate-slide-in"
-             style="background: {{ $config['bg'] }}; border: 1px solid {{ $config['border'] }}; border-radius: 12px; padding: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);"
+             style="background: {{ $config['soft'] }}; border: 1px solid {{ $config['color'] }}; border-radius: 12px; padding: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);"
              role="alert"
              aria-live="polite">
             <div class="flex items-start gap-3">
                 <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-                     style="background: {{ $config['color'] }}; color: var(--color-bg-primary);">
+                     style="background: {{ $config['color'] }}; color: {{ $config['on'] }};">
                     @if ($type === 'success')
                         <i class="fas fa-check text-sm"></i>
                     @elseif ($type === 'error')
@@ -57,11 +57,11 @@
 
 @if (session()->has('validation_errors'))
     <div class="fixed top-20 right-4 z-50 max-w-sm animate-slide-in"
-         style="background: rgba(255, 56, 100, 0.1); border: 1px solid var(--color-red); border-radius: 12px; padding: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);"
+         style="background: var(--color-danger-soft); border: 1px solid var(--color-danger); border-radius: 12px; padding: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);"
          role="alert"
          aria-live="polite">
         <div class="flex items-start gap-3">
-            <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style="background: var(--color-red); color: var(--color-bg-primary);">
+            <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style="background: var(--color-danger); color: var(--color-on-danger);">
                 <i class="fas fa-exclamation-circle text-sm"></i>
             </div>
             <div class="flex-1 min-w-0">

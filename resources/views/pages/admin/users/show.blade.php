@@ -36,6 +36,27 @@
                     <dd class="font-medium mt-1">{{ $user->email }}</dd>
                 </div>
                 <div>
+                    <dt class="text-text-secondary text-sm">Pessoa vinculada</dt>
+                    <dd class="font-medium mt-1">
+                        @if ($user->person)
+                            @can('people.view')
+                                <a href="{{ route('admin.people.show', $user->person) }}"
+                                   class="text-cyan transition-colors hover:opacity-80">
+                                    {{ $user->person->name }}
+                                </a>
+                            @else
+                                <span class="font-medium">{{ $user->person->name }}</span>
+                            @endcan
+                            <span class="block text-xs text-text-secondary">
+                                {{ $user->person->document_label }} {{ $user->person->document ?? '—' }}
+                                &middot; {{ $user->person->category_label }}
+                            </span>
+                        @else
+                            <span class="text-red">Sem pessoa vinculada</span>
+                        @endif
+                    </dd>
+                </div>
+                <div>
                     <dt class="text-text-secondary text-sm">E-mail verificado</dt>
                     <dd class="font-medium mt-1">
                         {{ $user->email_verified_at ? $user->email_verified_at->format('d/m/Y H:i') : 'Não verificado' }}

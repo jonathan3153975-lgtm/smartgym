@@ -90,7 +90,7 @@
                 
                 {{-- Notifications --}}
                 <div class="p-3 border-b border-custom flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: rgba(255, 56, 100, 0.15);">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: color-mix(in srgb, var(--color-danger) 15%, transparent);">
                         <i class="fas fa-bell text-red text-lg"></i>
                     </div>
                     <div class="flex-1 min-w-0">

@@ -240,7 +240,7 @@
         {{-- Units without region --}}
         <div class="rounded-xl border border-dashed border-custom p-4">
             <div class="flex items-center gap-3 mb-3">
-                <div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background: rgba(255, 179, 0, 0.15);">
+                <div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background: color-mix(in srgb, var(--color-warning) 15%, transparent);">
                     <i class="fas fa-link-slash" style="color: var(--color-yellow);"></i>
                 </div>
                 <div>
@@ -288,7 +288,7 @@
                 <div class="rounded-xl border border-custom overflow-hidden">
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-bg-secondary px-4 py-3">
                         <div class="flex items-center gap-3 min-w-0">
-                            <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background: rgba(0, 229, 255, 0.15);">
+                            <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background: color-mix(in srgb, var(--color-primary) 15%, transparent);">
                                 <i class="fas fa-map-marked-alt" style="color: var(--color-cyan-neon);"></i>
                             </div>
                             <div class="min-w-0">

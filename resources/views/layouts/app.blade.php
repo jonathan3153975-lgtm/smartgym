@@ -11,6 +11,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
+    <link rel="icon" type="image/png" sizes="64x64" href="{{ asset('images/favicon-64.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/apple-touch-icon.png') }}">
+
     {{-- Apply the saved/network theme before rendering to avoid flashes --}}
     <script>
         (function () {
@@ -89,16 +92,48 @@
             region: @json(session('active_region') ?? null),
         };
 
-        // Global SweetAlert helpers
-        window.alertSuccess = (title, text) => Swal.fire({ title, text, icon: 'success', confirmButtonColor: '#00E5FF' });
-        window.alertError = (title, text) => Swal.fire({ title, text, icon: 'error', confirmButtonColor: '#FF3864' });
-        window.alertWarning = (title, text) => Swal.fire({ title, text, icon: 'warning', confirmButtonColor: '#FFB300' });
-        window.alertInfo = (title, text) => Swal.fire({ title, text, icon: 'info', confirmButtonColor: '#00E5FF' });
+        // Global SweetAlert helpers (follow the active network theme)
+        const themeColor = (name, fallback) => {
+            const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+            return value || fallback;
+        };
+
+        const swalTheme = () => ({
+            background: themeColor('--color-surface-elevated', '#222F46'),
+            color: themeColor('--color-text-primary', '#F1F5F9'),
+        });
+
+        window.alertSuccess = (title, text) => Swal.fire({
+            ...swalTheme(),
+            title, text, icon: 'success',
+            confirmButtonColor: themeColor('--color-primary', '#00E5FF'),
+        });
+
+        window.alertError = (title, text) => Swal.fire({
+            ...swalTheme(),
+            title, text, icon: 'error',
+            confirmButtonColor: themeColor('--color-danger', '#FF3864'),
+        });
+
+        window.alertWarning = (title, text) => Swal.fire({
+            ...swalTheme(),
+            title, text, icon: 'warning',
+            confirmButtonColor: themeColor('--color-warning', '#FFB300'),
+        });
+
+        window.alertInfo = (title, text) => Swal.fire({
+            ...swalTheme(),
+            title, text, icon: 'info',
+            confirmButtonColor: themeColor('--color-info', '#38BDF8'),
+        });
+
         window.alertConfirm = (title, text, callback) => Swal.fire({
+            ...swalTheme(),
             title, text, icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#00E5FF',
-            cancelButtonColor: '#FF3864',
+            confirmButtonColor: themeColor('--color-primary', '#00E5FF'),
+            cancelButtonColor: themeColor('--color-danger', '#FF3864'),
             confirmButtonText: 'Confirmar',
             cancelButtonText: 'Cancelar'
         }).then((result) => { if (result.isConfirmed && callback) callback(); });

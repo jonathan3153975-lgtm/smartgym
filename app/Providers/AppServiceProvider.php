@@ -37,6 +37,8 @@ class AppServiceProvider extends ServiceProvider
                 'network.settings',
                 'regions.manage',
                 'units.manage',
+                'people.view',
+                'people.manage',
                 'users.manage',
                 'roles.manage',
                 'plans.manage',

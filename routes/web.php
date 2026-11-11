@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\NetworkController;
 use App\Http\Controllers\Admin\NetworkSettingsController;
+use App\Http\Controllers\Admin\PersonController;
 use App\Http\Controllers\Admin\PlanController;
 use App\Http\Controllers\Admin\PlanParameterController;
 use App\Http\Controllers\Admin\RegionController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\NetworkLogoController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,6 +38,10 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return redirect()->route('login');
 });
+
+// Network branding (logo served by the application, not by the storage symlink)
+Route::get('network/logo/{network}', NetworkLogoController::class)
+    ->name('network.logo');
 
 // Authentication Routes
 Route::middleware('guest')->group(function () {
@@ -118,6 +124,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->names('units');
             Route::patch('units/{unit}/status', [UnitController::class, 'toggleStatus'])
                 ->name('units.toggle-status');
+        });
+
+        Route::prefix('people')->name('people.')->group(function () {
+            Route::get('/', [PersonController::class, 'index'])
+                ->middleware('can:people.view')
+                ->name('index');
+            Route::get('{person}/edit-data', [PersonController::class, 'editData'])
+                ->middleware('can:people.edit')
+                ->name('edit-data');
+            Route::get('{person}', [PersonController::class, 'show'])
+                ->middleware('can:people.view')
+                ->name('show');
+            Route::post('/', [PersonController::class, 'store'])
+                ->middleware('can:people.create')
+                ->name('store');
+            Route::put('{person}', [PersonController::class, 'update'])
+                ->middleware('can:people.edit')
+                ->name('update');
+            Route::patch('{person}/status', [PersonController::class, 'toggleStatus'])
+                ->middleware('can:people.edit')
+                ->name('toggle-status');
+            Route::delete('{person}', [PersonController::class, 'destroy'])
+                ->middleware('can:people.delete')
+                ->name('destroy');
         });
 
         Route::middleware('can:users.manage')->group(function () {

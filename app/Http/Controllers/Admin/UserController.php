@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Network;
+use App\Models\Person;
 use App\Models\Region;
 use App\Models\Role;
 use App\Models\Unit;
@@ -29,7 +30,7 @@ class UserController extends Controller
         $tenant = TenantContext::current();
 
         $query = $tenant->scopeUsers(User::query())
-            ->with(['vinculos' => fn ($vinculoQuery) => $vinculoQuery
+            ->with(['person', 'vinculos' => fn ($vinculoQuery) => $vinculoQuery
                 ->with(['role', 'network', 'region', 'unit'])
                 ->orderBy('id')])
             ->withCount('vinculos')
@@ -40,7 +41,11 @@ class UserController extends Controller
 
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhereHas('person', fn ($personQuery) => $personQuery
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('document', 'like', "%{$search}%")
+                        ->orWhere('document_raw', 'like', "%{$search}%"));
             });
         }
 
@@ -68,7 +73,7 @@ class UserController extends Controller
 
         abort_unless($tenant->canAccessUser($user), 404);
 
-        $user->load(['vinculos' => function ($vinculoQuery) use ($tenant) {
+        $user->load(['person', 'vinculos' => function ($vinculoQuery) use ($tenant) {
             $tenant->scopeUserVinculos($vinculoQuery)
                 ->with(['role', 'network', 'region', 'unit'])
                 ->orderByDesc('id');
@@ -90,6 +95,7 @@ class UserController extends Controller
 
         return response()->json([
             'id' => $user->id,
+            'person_id' => $user->person_id,
             'name' => $user->name,
             'email' => $user->email,
             'network_id' => $vinculo?->network_id,
@@ -113,11 +119,12 @@ class UserController extends Controller
             $request->merge(['network_id' => $tenant->networkId()]);
         }
 
-        $validated = $this->validateUser($request);
+        $validated = $this->validateUser($request, $tenant);
         $this->validateRoleScope($validated, $tenant);
 
         $user = DB::transaction(function () use ($validated) {
             $user = User::create([
+                'person_id' => $validated['person_id'],
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'password' => $validated['password'],
@@ -155,11 +162,12 @@ class UserController extends Controller
             $request->merge(['network_id' => $tenant->networkId()]);
         }
 
-        $validated = $this->validateUser($request, $user);
+        $validated = $this->validateUser($request, $tenant, $user);
         $this->validateRoleScope($validated, $tenant);
 
         DB::transaction(function () use ($validated, $user, $tenant) {
             $data = [
+                'person_id' => $validated['person_id'],
                 'name' => $validated['name'],
                 'email' => $validated['email'],
             ];
@@ -278,9 +286,10 @@ class UserController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function validateUser(Request $request, ?User $user = null): array
+    private function validateUser(Request $request, TenantContext $tenant, ?User $user = null): array
     {
         $validated = $request->validate([
+            'person_id' => ['required', 'exists:people,id'],
             'name' => ['required', 'string', 'max:255'],
             'email' => [
                 'required',
@@ -299,8 +308,25 @@ class UserController extends Controller
         ]);
 
         $this->validateScope($validated);
+        $this->validatePersonScope($validated, $tenant);
 
         return $validated;
+    }
+
+    /**
+     * Ensure the selected person is available to the current context.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function validatePersonScope(array $validated, TenantContext $tenant): void
+    {
+        $person = Person::find($validated['person_id']);
+
+        if ($person && ! $tenant->canAccessPerson($person)) {
+            throw ValidationException::withMessages([
+                'person_id' => 'A pessoa selecionada não está disponível para o seu escopo.',
+            ]);
+        }
     }
 
     /**

@@ -26,7 +26,7 @@
                     <p class="text-text-secondary text-sm font-medium">Total de Alunos</p>
                     <p class="text-3xl font-bold mt-1">{{ $stats['total_students'] ?? '0' }}</p>
                 </div>
-                <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: rgba(0, 229, 255, 0.15);">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: color-mix(in srgb, var(--color-primary) 15%, transparent);">
                     <i class="fas fa-users text-xl" style="color: var(--color-cyan-neon);"></i>
                 </div>
             </div>
@@ -38,7 +38,7 @@
                     <p class="text-text-secondary text-sm font-medium">Alunos Ativos</p>
                     <p class="text-3xl font-bold mt-1">{{ $stats['active_students'] ?? '0' }}</p>
                 </div>
-                <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: rgba(0, 230, 118, 0.15);">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: color-mix(in srgb, var(--color-success) 15%, transparent);">
                     <i class="fas fa-user-check text-xl" style="color: var(--color-green);"></i>
                 </div>
             </div>
@@ -50,7 +50,7 @@
                     <p class="text-text-secondary text-sm font-medium">Alunos Inativos</p>
                     <p class="text-3xl font-bold mt-1">{{ $stats['inactive_students'] ?? '0' }}</p>
                 </div>
-                <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: rgba(255, 56, 100, 0.15);">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: color-mix(in srgb, var(--color-danger) 15%, transparent);">
                     <i class="fas fa-user-slash text-xl" style="color: var(--color-red);"></i>
                 </div>
             </div>
@@ -62,7 +62,7 @@
                     <p class="text-text-secondary text-sm font-medium">Novos este Mês</p>
                     <p class="text-3xl font-bold mt-1">{{ $stats['new_this_month'] ?? '0' }}</p>
                 </div>
-                <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: rgba(198, 255, 0, 0.15);">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: color-mix(in srgb, var(--color-accent) 15%, transparent);">
                     <i class="fas fa-user-plus text-xl" style="color: var(--color-lime-green);"></i>
                 </div>
             </div>
@@ -79,7 +79,7 @@
                     @can('students.create')
                         <a href="{{ route('students.create') }}"
                            class="flex items-center gap-3 p-3 rounded-lg hover:bg-surface-elevated transition-colors group border border-transparent hover:border-cyan">
-                            <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: rgba(0, 229, 255, 0.15);">
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: color-mix(in srgb, var(--color-primary) 15%, transparent);">
                                 <i class="fas fa-user-plus" style="color: var(--color-cyan-neon);"></i>
                             </div>
                             <div>
@@ -92,7 +92,7 @@
                     @can('students.index')
                         <a href="{{ route('students.index') }}"
                            class="flex items-center gap-3 p-3 rounded-lg hover:bg-surface-elevated transition-colors group border border-transparent hover:border-purple">
-                            <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: rgba(168, 85, 247, 0.15);">
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: color-mix(in srgb, var(--color-secondary) 15%, transparent);">
                                 <i class="fas fa-list" style="color: var(--color-purple-neon);"></i>
                             </div>
                             <div>
@@ -105,7 +105,7 @@
                     @can('students.index')
                         <a href="{{ route('students.index') }}"
                            class="flex items-center gap-3 p-3 rounded-lg hover:bg-surface-elevated transition-colors group border border-transparent hover:border-lime">
-                            <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: rgba(198, 255, 0, 0.15);">
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: color-mix(in srgb, var(--color-accent) 15%, transparent);">
                                 <i class="fas fa-download" style="color: var(--color-lime-green);"></i>
                             </div>
                             <div>

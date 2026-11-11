@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Support\NetworkPolicy;
 use App\Support\NetworkTheme;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
@@ -25,7 +26,10 @@ class NetworkSettingsController extends Controller
 
         $network->load(['plan.parameters']);
 
-        return view('pages.admin.network-settings.edit', compact('network'));
+        $policyDomains = NetworkPolicy::schema();
+        $policyValues = NetworkPolicy::forNetwork($network);
+
+        return view('pages.admin.network-settings.edit', compact('network', 'policyDomains', 'policyValues'));
     }
 
     /**
@@ -70,6 +74,8 @@ class NetworkSettingsController extends Controller
             }
         }
 
+        $rules = array_merge($rules, NetworkPolicy::rules());
+
         $validated = $request->validate($rules);
 
         if (! empty($validated['state'])) {
@@ -80,6 +86,7 @@ class NetworkSettingsController extends Controller
         $settings['company_name'] = ($validated['company_name'] ?? null) ?: $validated['name'];
         $settings['theme_mode'] = $validated['theme_mode'];
         $settings['theme'] = $validated['theme'];
+        $settings['policies'] = NetworkPolicy::merge($validated, $network);
 
         unset($settings['primary_color'], $settings['secondary_color'], $settings['accent_color']);
 
@@ -105,6 +112,7 @@ class NetworkSettingsController extends Controller
             'company_name',
             'theme_mode',
             'theme',
+            'policies',
             'logo',
             'remove_logo',
         ]);

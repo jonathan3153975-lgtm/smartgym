@@ -13,7 +13,7 @@
         @if ($managementNetwork)
             <a href="{{ route('admin.networks.show', $managementNetwork) }}" class="card group">
                 <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: rgba(0, 229, 255, 0.15);">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: color-mix(in srgb, var(--color-primary) 15%, transparent);">
                         <i class="fas fa-diagram-project text-xl" style="color: var(--color-cyan-neon);"></i>
                     </div>
                     <div class="min-w-0">
@@ -27,7 +27,7 @@
         @can('networks.manage')
             <a href="{{ route('admin.networks.index') }}" class="card group">
                 <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: rgba(0, 229, 255, 0.15);">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: color-mix(in srgb, var(--color-primary) 15%, transparent);">
                         <i class="fas fa-sitemap text-xl" style="color: var(--color-cyan-neon);"></i>
                     </div>
                     <div>
@@ -41,7 +41,7 @@
         @can('regions.manage')
             <a href="{{ route('admin.regions.index') }}" class="card group">
                 <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: rgba(168, 85, 247, 0.15);">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: color-mix(in srgb, var(--color-secondary) 15%, transparent);">
                         <i class="fas fa-map-marked-alt text-xl" style="color: var(--color-purple-neon);"></i>
                     </div>
                     <div>
@@ -55,7 +55,7 @@
         @can('units.manage')
             <a href="{{ route('admin.units.index') }}" class="card group">
                 <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: rgba(198, 255, 0, 0.15);">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: color-mix(in srgb, var(--color-accent) 15%, transparent);">
                         <i class="fas fa-building text-xl" style="color: var(--color-lime-green);"></i>
                     </div>
                     <div>
@@ -69,7 +69,7 @@
         @can('users.manage')
             <a href="{{ route('admin.users.index') }}" class="card group">
                 <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: rgba(255, 179, 0, 0.15);">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: color-mix(in srgb, var(--color-warning) 15%, transparent);">
                         <i class="fas fa-users text-xl" style="color: var(--color-yellow);"></i>
                     </div>
                     <div>
@@ -83,7 +83,7 @@
         @can('roles.manage')
             <a href="{{ route('admin.roles.index') }}" class="card group">
                 <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: rgba(0, 230, 118, 0.15);">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: color-mix(in srgb, var(--color-success) 15%, transparent);">
                         <i class="fas fa-user-shield text-xl" style="color: var(--color-green);"></i>
                     </div>
                     <div>
@@ -97,7 +97,7 @@
         @can('plans.manage')
             <a href="{{ route('admin.plans.index') }}" class="card group">
                 <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: rgba(255, 56, 100, 0.15);">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: color-mix(in srgb, var(--color-danger) 15%, transparent);">
                         <i class="fas fa-layer-group text-xl" style="color: var(--color-red);"></i>
                     </div>
                     <div>

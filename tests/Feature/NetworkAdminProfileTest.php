@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Network;
 use App\Models\Permission;
+use App\Models\Person;
 use App\Models\Region;
 use App\Models\Role;
 use App\Models\Unit;
@@ -45,10 +46,14 @@ class NetworkAdminProfileTest extends TestCase
             ->assertSee('Minha rede')
             ->assertSee('<span>Regiões</span>', false)
             ->assertSee('<span>Unidades</span>', false)
+            ->assertSee('<span>Pessoas</span>', false)
             ->assertSee('<span>Usuários</span>', false)
             ->assertSee('<span>Perfis</span>', false)
+            ->assertSee('<span>Modalidades</span>', false)
+            ->assertSee('<span>Planos</span>', false)
+            ->assertSee('Em breve')
             ->assertDontSee('<span>Redes</span>', false)
-            ->assertDontSee('<span>Planos</span>', false)
+            ->assertDontSee('<span>Planos SaaS</span>', false)
             ->getContent();
 
         $this->assertStringContainsString('Visão da rede', $html);
@@ -122,7 +127,22 @@ class NetworkAdminProfileTest extends TestCase
     {
         $this->get(route('admin.network.settings.edit'))
             ->assertOk()
-            ->assertSee('Configurações da rede');
+            ->assertSee('Configurações da rede')
+            ->assertSee('Tema padrão da rede')
+            ->assertSee('Exemplos de elementos')
+            ->assertSee('Políticas organizacionais')
+            ->assertSee('Pessoas e alunos')
+            ->assertSee('Planos e matrículas')
+            ->assertSee('Modalidades e serviços')
+            ->assertSee('Governança e auditoria')
+            ->assertSee('Fundo da mensagem de sucesso')
+            ->assertSee('Fundo da mensagem de erro')
+            ->assertSee('Fundo da mensagem de informação')
+            ->assertSee('data-settings-tab="empresa"', false)
+            ->assertSee('data-settings-tab="tema"', false)
+            ->assertSee('data-settings-tab="politica"', false)
+            ->assertSee('id="settingsTabSelect"', false)
+            ->assertSee('data-initial-settings-tab="empresa"', false);
 
         $this->put(route('admin.network.settings.update'), array_merge([
             'name' => 'SmartGym Demo Renomeada',
@@ -161,7 +181,9 @@ class NetworkAdminProfileTest extends TestCase
 
         $this->get(route('admin.dashboard'))
             ->assertOk()
-            ->assertSee($logoPath, false);
+            ->assertSee('/network/logo/'.$this->network->id, false);
+
+        $this->get(route('network.logo', $this->network))->assertOk();
 
         $this->put(route('admin.network.settings.update'), array_merge([
             'name' => $this->network->name,
@@ -171,6 +193,136 @@ class NetworkAdminProfileTest extends TestCase
 
         $this->assertArrayNotHasKey('logo', $this->network->fresh()->settings);
         Storage::disk('public')->assertMissing($logoPath);
+    }
+
+    /** @test */
+    public function test_invalid_fields_open_the_matching_settings_tab(): void
+    {
+        $this->withSession([
+            'errors' => [
+                'default' => [
+                    'format' => ':message',
+                    'messages' => [
+                        'theme.dark.background_primary' => ['Informe uma cor válida.'],
+                    ],
+                ],
+            ],
+        ])
+            ->get(route('admin.network.settings.edit'))
+            ->assertOk()
+            ->assertSee('data-initial-settings-tab="tema"', false);
+
+        $this->withSession([
+            'errors' => [
+                'default' => [
+                    'format' => ':message',
+                    'messages' => [
+                        'policies.pessoas.scope' => ['Escopo inválido.'],
+                    ],
+                ],
+            ],
+        ])
+            ->get(route('admin.network.settings.edit'))
+            ->assertOk()
+            ->assertSee('data-initial-settings-tab="politica"', false);
+    }
+
+    /** @test */
+    public function test_network_admin_can_configure_the_organizational_policies(): void
+    {
+        $this->put(route('admin.network.settings.update'), array_merge([
+            'name' => $this->network->name,
+            'theme_mode' => 'system',
+            'policies' => [
+                'pessoas' => [
+                    'scope' => 'unit',
+                    'management_scope' => 'region',
+                    'share_across_units' => '0',
+                    'primary_unit_required' => '1',
+                    'transfer_allowed' => '1',
+                    'cpf_unique_scope' => 'unit',
+                ],
+                'planos' => [
+                    'scope' => 'region',
+                    'management_scope' => 'network',
+                    'inherit_definitions' => '1',
+                    'allow_local_plans' => '1',
+                    'require_approval' => '1',
+                    'price_by_unit' => '0',
+                    'student_visibility' => 'region',
+                    'enforce_student_unit' => '1',
+                ],
+                'modalidades' => [
+                    'scope' => 'network',
+                    'management_scope' => 'unit',
+                    'inherit_definitions' => '1',
+                    'allow_local_modalities' => '0',
+                    'availability' => 'all',
+                    'allow_cross_unit' => '0',
+                ],
+                'equipe' => [
+                    'scope' => 'network',
+                    'management_scope' => 'network',
+                    'allow_multiple_vinculos' => '1',
+                    'require_network_approval' => '0',
+                    'unit_manages_users' => '0',
+                ],
+                'governanca' => [
+                    'unit_autonomy' => 'high',
+                    'regions_enabled' => '1',
+                    'audit_policy_changes' => '1',
+                ],
+            ],
+        ], $this->themePayload()))->assertRedirect(route('admin.network.settings.edit'));
+
+        $policies = $this->network->fresh()->settings['policies'];
+
+        $this->assertSame('unit', $policies['pessoas']['scope']);
+        $this->assertSame('region', $policies['pessoas']['management_scope']);
+        $this->assertFalse($policies['pessoas']['share_across_units']);
+        $this->assertSame('unit', $policies['pessoas']['cpf_unique_scope']);
+        $this->assertSame('region', $policies['planos']['student_visibility']);
+        $this->assertTrue($policies['planos']['allow_local_plans']);
+        $this->assertSame('all', $policies['modalidades']['availability']);
+        $this->assertFalse($policies['modalidades']['allow_cross_unit']);
+        $this->assertTrue($policies['equipe']['allow_multiple_vinculos']);
+        $this->assertSame('high', $policies['governanca']['unit_autonomy']);
+    }
+
+    /** @test */
+    public function test_organizational_policies_are_validated_and_default_when_missing(): void
+    {
+        $this->put(route('admin.network.settings.update'), array_merge([
+            'name' => $this->network->name,
+            'theme_mode' => 'system',
+            'policies' => [
+                'pessoas' => ['scope' => 'invalid-scope'],
+            ],
+        ], $this->themePayload()))->assertSessionHasErrors('policies.pessoas.scope');
+
+        $this->put(route('admin.network.settings.update'), array_merge([
+            'name' => $this->network->name,
+            'theme_mode' => 'system',
+        ], $this->themePayload()))->assertRedirect(route('admin.network.settings.edit'));
+
+        $policies = $this->network->fresh()->settings['policies'];
+
+        $this->assertSame('network', $policies['pessoas']['scope']);
+        $this->assertTrue($policies['pessoas']['primary_unit_required']);
+    }
+
+    /** @test */
+    public function test_logo_route_does_not_serve_files_from_another_network(): void
+    {
+        Storage::fake('public');
+
+        $path = UploadedFile::fake()->image('logo.png', 512, 512)->store('networks/999', 'public');
+
+        $settings = $this->network->settings;
+        $settings['logo'] = $path;
+        $this->network->update(['settings' => $settings]);
+
+        $this->get(route('network.logo', $this->network))->assertNotFound();
     }
 
     /** @test */
@@ -202,7 +354,20 @@ class NetworkAdminProfileTest extends TestCase
             ->assertOk()
             ->assertSee('Academia Forte')
             ->assertSee(':root.dark{', false)
-            ->assertSee('--color-bg-primary:#112233', false);
+            ->assertSee('--color-bg-primary:#112233', false)
+            ->assertSee('--color-success-soft:', false)
+            ->assertSee('--color-info:', false)
+            ->assertSee('--color-on-danger:', false);
+    }
+
+    /** @test */
+    public function test_flash_messages_use_the_network_theme_colors(): void
+    {
+        $this->withSession(['success' => 'Configurações salvas.'])
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('var(--color-success-soft)', false)
+            ->assertSee('var(--color-on-success)', false);
     }
 
     /** @test */
@@ -263,8 +428,10 @@ class NetworkAdminProfileTest extends TestCase
         ]);
 
         $networkRole = Role::where('name', 'network_admin')->firstOrFail();
+        $person = Person::factory()->staff()->create(['network_id' => $this->network->id]);
 
         $this->postJson(route('admin.users.store'), [
+            'person_id' => $person->id,
             'name' => 'Usuário da Rede',
             'email' => 'usuario.rede@smartgym.com.br',
             'password' => 'Senha12345',
@@ -283,6 +450,7 @@ class NetworkAdminProfileTest extends TestCase
         ]);
 
         $this->postJson(route('admin.users.store'), [
+            'person_id' => $person->id,
             'name' => 'Usuário Plataforma',
             'email' => 'usuario.plataforma@smartgym.com.br',
             'password' => 'Senha12345',
@@ -292,6 +460,7 @@ class NetworkAdminProfileTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors('role_id');
 
         $this->postJson(route('admin.users.store'), [
+            'person_id' => $person->id,
             'name' => 'Usuário Região Externa',
             'email' => 'usuario.regiao.externa@smartgym.com.br',
             'password' => 'Senha12345',

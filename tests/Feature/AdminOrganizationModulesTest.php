@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Network;
 use App\Models\Permission;
+use App\Models\Person;
 use App\Models\Region;
 use App\Models\Role;
 use App\Models\Unit;
@@ -47,9 +48,11 @@ class AdminOrganizationModulesTest extends TestCase
             '<span>Redes</span>',
             '<span>Regiões</span>',
             '<span>Unidades</span>',
-            '<span>Usuários</span>',
+            '<span>Pessoas</span>',
             '<span>Perfis</span>',
-            '<span>Planos</span>',
+            '<span>Usuários</span>',
+            '<span>Modalidades</span>',
+            '<span>Planos SaaS</span>',
         ];
 
         $previousPosition = -1;
@@ -166,12 +169,14 @@ class AdminOrganizationModulesTest extends TestCase
     {
         $network = Network::where('slug', 'smartgym-demo')->firstOrFail();
         $role = Role::where('name', 'network_admin')->where('level', 'network')->firstOrFail();
+        $person = Person::factory()->staff()->create(['network_id' => $network->id]);
 
         $this->get(route('admin.users.index'))
             ->assertOk()
             ->assertSee('Cadastro de usuários');
 
         $this->postJson(route('admin.users.store'), [
+            'person_id' => $person->id,
             'name' => 'Usuário Teste',
             'email' => 'usuario.teste@smartgym.com.br',
             'password' => 'Senha12345',
@@ -182,6 +187,7 @@ class AdminOrganizationModulesTest extends TestCase
         ])->assertOk()->assertJsonPath('success', true);
 
         $user = User::where('email', 'usuario.teste@smartgym.com.br')->firstOrFail();
+        $this->assertSame($person->id, $user->person_id);
         $this->assertNotNull($user->email_verified_at);
         $this->assertDatabaseHas('user_vinculos', [
             'user_id' => $user->id,
@@ -191,6 +197,7 @@ class AdminOrganizationModulesTest extends TestCase
         ]);
 
         $this->putJson(route('admin.users.update', $user), [
+            'person_id' => $person->id,
             'name' => 'Usuário Teste Editado',
             'email' => 'usuario.teste@smartgym.com.br',
             'network_id' => $network->id,
@@ -231,8 +238,10 @@ class AdminOrganizationModulesTest extends TestCase
         ]);
 
         $role = Role::where('name', 'network_admin')->firstOrFail();
+        $person = Person::factory()->staff()->create(['network_id' => $network->id]);
 
         $this->postJson(route('admin.users.store'), [
+            'person_id' => $person->id,
             'name' => 'Usuário Inválido',
             'email' => 'invalido@smartgym.com.br',
             'password' => 'Senha12345',

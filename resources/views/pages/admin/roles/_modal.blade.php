@@ -85,7 +85,7 @@
 
             <p id="roleFormError"
                class="hidden rounded-lg px-4 py-3 text-sm"
-               style="background: rgba(255, 56, 100, 0.1); color: var(--color-red);"></p>
+               style="background: var(--color-danger-soft); color: var(--color-danger);"></p>
 
             <div class="flex justify-end gap-3 pt-4 border-t border-custom">
                 <button type="button" onclick="closeRoleModal()" class="btn-outline" id="roleCancelBtn">

@@ -14,40 +14,60 @@ class NetworkTheme
      */
     public const DEFAULTS = [
         'dark' => [
-            'background_primary' => '#090D18',
-            'background_secondary' => '#111827',
-            'surface' => '#192337',
-            'surface_elevated' => '#222F46',
-            'border' => '#2A3850',
-            'text_primary' => '#F1F5F9',
-            'text_secondary' => '#A6B0C3',
-            'primary' => '#00E5FF',
-            'on_primary' => '#090D18',
-            'secondary' => '#A855F7',
+            'background_primary' => '#071426',
+            'background_secondary' => '#0D1B30',
+            'surface' => '#0D1B30',
+            'surface_elevated' => '#142944',
+            'overlay' => '#040B14',
+            'border' => '#263B57',
+            'text_primary' => '#F8FAFC',
+            'text_secondary' => '#A9B8CC',
+            'primary' => '#0D6EFD',
+            'on_primary' => '#FFFFFF',
+            'secondary' => '#64748B',
             'on_secondary' => '#FFFFFF',
-            'accent' => '#C6FF00',
-            'on_accent' => '#090D18',
-            'success' => '#00E676',
-            'warning' => '#FFB300',
-            'danger' => '#FF3864',
+            'accent' => '#FFD600',
+            'on_accent' => '#071426',
+            'success' => '#10B981',
+            'on_success' => '#071426',
+            'success_soft' => '#0B2A22',
+            'warning' => '#FFD600',
+            'on_warning' => '#071426',
+            'warning_soft' => '#2E2A00',
+            'danger' => '#EF4444',
+            'on_danger' => '#FFFFFF',
+            'danger_soft' => '#2E1114',
+            'info' => '#00D4FF',
+            'on_info' => '#071426',
+            'info_soft' => '#04262E',
         ],
         'light' => [
-            'background_primary' => '#F8FAFC',
+            'background_primary' => '#F4F7FB',
             'background_secondary' => '#FFFFFF',
-            'surface' => '#F1F5F9',
-            'surface_elevated' => '#FFFFFF',
-            'border' => '#E2E8F0',
+            'surface' => '#FFFFFF',
+            'surface_elevated' => '#F1F5F9',
+            'overlay' => '#0F172A',
+            'border' => '#CBD5E1',
             'text_primary' => '#0F172A',
-            'text_secondary' => '#64748B',
-            'primary' => '#0891B2',
+            'text_secondary' => '#475569',
+            'primary' => '#0D6EFD',
             'on_primary' => '#FFFFFF',
-            'secondary' => '#7C3AED',
+            'secondary' => '#64748B',
             'on_secondary' => '#FFFFFF',
-            'accent' => '#84CC16',
-            'on_accent' => '#0F172A',
-            'success' => '#16A34A',
-            'warning' => '#CA8A04',
+            'accent' => '#D97706',
+            'on_accent' => '#FFFFFF',
+            'success' => '#059669',
+            'on_success' => '#FFFFFF',
+            'success_soft' => '#D1FAE5',
+            'warning' => '#B45309',
+            'on_warning' => '#FFFFFF',
+            'warning_soft' => '#FEF3C7',
             'danger' => '#DC2626',
+            'on_danger' => '#FFFFFF',
+            'danger_soft' => '#FEE2E2',
+            'info' => '#0284C7',
+            'on_info' => '#FFFFFF',
+            'info_soft' => '#E0F2FE',
         ],
     ];
 
@@ -61,6 +81,7 @@ class NetworkTheme
         'background_secondary' => ['--color-bg-secondary'],
         'surface' => ['--color-surface'],
         'surface_elevated' => ['--color-surface-elevated'],
+        'overlay' => ['--color-overlay'],
         'border' => ['--color-border'],
         'text_primary' => ['--color-text-primary', '--color-text'],
         'text_secondary' => ['--color-text-secondary', '--color-text-muted'],
@@ -71,8 +92,17 @@ class NetworkTheme
         'accent' => ['--color-lime-green', '--color-accent'],
         'on_accent' => ['--color-on-accent'],
         'success' => ['--color-green', '--color-success'],
+        'on_success' => ['--color-on-success'],
+        'success_soft' => ['--color-success-soft'],
         'warning' => ['--color-yellow', '--color-warning'],
+        'on_warning' => ['--color-on-warning'],
+        'warning_soft' => ['--color-warning-soft'],
         'danger' => ['--color-red', '--color-danger'],
+        'on_danger' => ['--color-on-danger'],
+        'danger_soft' => ['--color-danger-soft'],
+        'info' => ['--color-info'],
+        'on_info' => ['--color-on-info'],
+        'info_soft' => ['--color-info-soft'],
     ];
 
     /**
@@ -119,11 +149,25 @@ class NetworkTheme
         return $name !== '' ? $name : ($network?->name ?? config('app.name'));
     }
 
+    /**
+     * Public URL of the network logo.
+     *
+     * The file is streamed by a dedicated route instead of relying on the
+     * storage symlink (which is not always available, especially on Windows),
+     * so the logo is served even when `APP_URL` points to a different host.
+     */
     public static function logoUrl(?Network $network): ?string
     {
         $logo = $network?->settings['logo'] ?? null;
 
-        return $logo ? Storage::disk('public')->url($logo) : null;
+        if (! $logo || ! Storage::disk('public')->exists($logo)) {
+            return null;
+        }
+
+        return route('network.logo', [
+            'network' => $network,
+            'v' => substr(md5($logo), 0, 8),
+        ]);
     }
 
     /**

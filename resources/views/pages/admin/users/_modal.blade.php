@@ -4,6 +4,7 @@
     $userRoleOptions = $tenant->roleOptionsQuery()->orderBy('level')->orderBy('display_name')->get(['id', 'display_name', 'level']);
     $userRegionOptions = $tenant->regionsQuery()->get(['id', 'name', 'network_id']);
     $userUnitOptions = $tenant->unitsQuery()->get(['id', 'name', 'network_id', 'region_id']);
+    $userPersonOptions = $tenant->peopleQuery()->get(['id', 'name', 'person_type', 'category', 'document']);
     $tenantNetworkId = $tenant->networkId();
 @endphp
 
@@ -32,6 +33,28 @@
                 <h3 class="text-sm font-semibold uppercase tracking-wider text-text-secondary">Dados do usuário</h3>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="sm:col-span-2">
+                        <label for="user_person_id" class="label-field">Pessoa vinculada <span class="text-red">*</span></label>
+                        <select id="user_person_id" name="person_id" required class="input-field">
+                            <option value="">Selecione uma pessoa cadastrada</option>
+                            @foreach ($userPersonOptions as $personOption)
+                                <option value="{{ $personOption->id }}"
+                                        data-name="{{ $personOption->name }}"
+                                        data-email="{{ $personOption->email }}">
+                                    {{ $personOption->name }}
+                                    @if ($personOption->document)
+                                        — {{ $personOption->document }}
+                                    @endif
+                                    ({{ $personOption->category_label }} / {{ $personOption->person_type_label }})
+                                </option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-text-secondary">
+                            Todo usuário deve estar vinculado a uma pessoa registrada.
+                            Cadastre a pessoa no módulo <strong>Pessoas</strong> antes de criar o usuário.
+                        </p>
+                    </div>
+
                     <div>
                         <label for="user_name" class="label-field">Nome <span class="text-red">*</span></label>
                         <input type="text" id="user_name" name="name" required maxlength="255" class="input-field" placeholder="Nome completo">
@@ -122,7 +145,7 @@
 
             <p id="userFormError"
                class="hidden rounded-lg px-4 py-3 text-sm"
-               style="background: rgba(255, 56, 100, 0.1); color: var(--color-red);"></p>
+               style="background: var(--color-danger-soft); color: var(--color-danger);"></p>
 
             <div class="flex justify-end gap-3 pt-4 border-t border-custom">
                 <button type="button" onclick="closeUserModal()" class="btn-outline">Cancelar</button>
@@ -158,6 +181,7 @@
         }
 
         const fields = {
+            person_id: document.getElementById('user_person_id'),
             name: document.getElementById('user_name'),
             email: document.getElementById('user_email'),
             role_id: document.getElementById('user_role_id'),
@@ -166,6 +190,22 @@
             region_id: regionSelect,
             unit_id: unitSelect,
         };
+
+        fields.person_id?.addEventListener('change', function () {
+            const option = fields.person_id.options[fields.person_id.selectedIndex];
+
+            if (!option || !option.value) {
+                return;
+            }
+
+            if (!fields.name.value.trim()) {
+                fields.name.value = option.dataset.name ?? '';
+            }
+
+            if (!fields.email.value.trim()) {
+                fields.email.value = option.dataset.email ?? '';
+            }
+        });
 
         let currentUserId = null;
 
@@ -242,6 +282,7 @@
                         return response.json();
                     })
                     .then(function (data) {
+                        fields.person_id.value = data.person_id ?? '';
                         fields.name.value = data.name ?? '';
                         fields.email.value = data.email ?? '';
                         fields.role_id.value = data.role_id ?? '';

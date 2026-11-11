@@ -7,11 +7,12 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'avatar'])]
+#[Fillable(['person_id', 'name', 'email', 'password', 'avatar'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -34,6 +35,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function vinculos(): HasMany
     {
         return $this->hasMany(UserVinculo::class);
+    }
+
+    public function person(): BelongsTo
+    {
+        return $this->belongsTo(Person::class);
     }
 
     public function activeVinculos(): HasMany

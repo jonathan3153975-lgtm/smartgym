@@ -1,5 +1,5 @@
 @php
-    $brandLogo = \App\Support\NetworkTheme::logoUrl($activeNetwork ?? null);
+    $brandLogo = \App\Support\NetworkTheme::logoUrl($activeNetwork ?? null) ?: asset('images/logo.png');
     $brandName = \App\Support\NetworkTheme::companyName($activeNetwork ?? null);
 @endphp
 
@@ -7,17 +7,11 @@
     {{-- Logo/Brand --}}
     <div class="flex items-center justify-between h-16 px-4 border-b border-custom">
         <a href="{{ route('dashboard') }}" class="flex items-center gap-3 min-w-0">
-            @if ($brandLogo)
-                <img src="{{ $brandLogo }}"
-                     alt="{{ $brandName }}"
-                     class="w-10 h-10 rounded-xl object-contain flex-shrink-0 bg-surface-elevated p-1 border border-custom">
-            @else
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background: linear-gradient(135deg, var(--color-cyan-neon), var(--color-purple-neon));">
-                    <i class="fas fa-dumbbell text-xl" style="color: var(--color-bg-primary);"></i>
-                </div>
-            @endif
+            <img src="{{ $brandLogo }}"
+                 alt="{{ $brandName }}"
+                 class="w-10 h-10 rounded-xl object-contain flex-shrink-0 bg-surface-elevated p-1 border border-custom">
             <span class="text-xl font-bold bg-clip-text text-transparent truncate"
-                  style="background-image: linear-gradient(90deg, var(--color-cyan-neon), var(--color-purple-neon));">
+                  style="background-image: linear-gradient(90deg, var(--color-primary), var(--color-info));">
                 {{ $brandName }}
             </span>
         </a>
@@ -188,12 +182,12 @@
                                  </a>
                             @endcan
 
-                            @can('users.manage')
-                                <a href="{{ route('admin.users.index') }}"
+                            @can('people.view')
+                                <a href="{{ route('admin.people.index') }}"
                                    class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
-                                          {{ request()->routeIs('admin.users.*') ? 'text-cyan bg-cyan/10' : '' }}">
-                                     <i class="fas fa-users w-4 text-center"></i>
-                                     <span>Usuários</span>
+                                          {{ request()->routeIs('admin.people.*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                     <i class="fas fa-address-book w-4 text-center"></i>
+                                     <span>Pessoas</span>
                                  </a>
                             @endcan
 
@@ -206,13 +200,40 @@
                                  </a>
                             @endcan
 
+                            @can('users.manage')
+                                <a href="{{ route('admin.users.index') }}"
+                                   class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                          {{ request()->routeIs('admin.users.*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                     <i class="fas fa-users w-4 text-center"></i>
+                                     <span>Usuários</span>
+                                 </a>
+                            @endcan
+
+                            <span class="nav-subitem flex cursor-not-allowed items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-text-secondary/60"
+                                  title="Módulo em desenvolvimento">
+                                <span class="flex items-center gap-2">
+                                    <i class="fas fa-dumbbell w-4 text-center"></i>
+                                    <span>Modalidades</span>
+                                </span>
+                                <span class="badge badge-secondary text-[0.6rem]">Em breve</span>
+                            </span>
+
                             @can('plans.manage')
                                 <a href="{{ route('admin.plans.index') }}"
                                    class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
                                           {{ request()->routeIs('admin.plans.*') ? 'text-cyan bg-cyan/10' : '' }}">
                                      <i class="fas fa-layer-group w-4 text-center"></i>
-                                     <span>Planos</span>
+                                     <span>Planos SaaS</span>
                                  </a>
+                            @else
+                                <span class="nav-subitem flex cursor-not-allowed items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-text-secondary/60"
+                                      title="Módulo em desenvolvimento">
+                                    <span class="flex items-center gap-2">
+                                        <i class="fas fa-layer-group w-4 text-center"></i>
+                                        <span>Planos</span>
+                                    </span>
+                                    <span class="badge badge-secondary text-[0.6rem]">Em breve</span>
+                                </span>
                             @endcan
                         </div>
                     </div>
