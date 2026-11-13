@@ -1,6 +1,7 @@
 @php
     $brandLogo = \App\Support\NetworkTheme::logoUrl($activeNetwork ?? null) ?: asset('images/logo.png');
     $brandName = \App\Support\NetworkTheme::companyName($activeNetwork ?? null);
+    $tenantContext = \App\Support\TenantContext::current();
 @endphp
 
 <aside id="sidebar" class="sidebar flex flex-col">
@@ -68,40 +69,20 @@
                 <span>Dashboard</span>
             </a>
 
-            {{-- Students Module --}}
-            <div class="nav-group">
-                <button type="button"
-                        class="nav-group-toggle w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200"
-                        aria-expanded="false"
-                        aria-controls="studentsSubmenu">
-                    <span class="flex items-center gap-3">
-                        <i class="fas fa-user-graduate w-5 text-center"></i>
-                        <span>Alunos</span>
-                    </span>
-                    <i class="fas fa-chevron-down text-xs transition-transform duration-200"></i>
-                </button>
+            {{-- Unit operations panel --}}
+            @can('unit.panel')
+                <div class="pt-4 mt-4 border-t border-custom">
+                    <div class="px-3 py-2 text-xs font-medium text-text-secondary uppercase tracking-wider">
+                        Minha unidade
+                    </div>
 
-                <div id="studentsSubmenu" class="nav-submenu hidden mt-1 ml-8 space-y-1" role="region" aria-label="Submenu Alunos">
-                    <a href="{{ route('students.index') }}"
-                       class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200"
-                       {{ request()->routeIs('students.*') ? 'aria-current="page"' : '' }}>
-                        <i class="fas fa-list w-4 text-center"></i>
-                        <span>Listar Alunos</span>
-                    </a>
-                    <a href="{{ route('students.create') }}"
-                       class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200"
-                       {{ request()->routeIs('students.create') ? 'aria-current="page"' : '' }}>
-                        <i class="fas fa-plus w-4 text-center"></i>
-                        <span>Novo Aluno</span>
-                    </a>
-                    <a href="{{ route('students.inactive') }}"
-                       class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200"
-                       {{ request()->routeIs('students.inactive') ? 'aria-current="page"' : '' }}>
-                        <i class="fas fa-user-slash w-4 text-center"></i>
-                        <span>Inativos</span>
+                    <a href="{{ route('unit.dashboard') }}"
+                       class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200 group {{ request()->routeIs('unit.*') ? 'text-cyan bg-cyan/10' : '' }}">
+                        <i class="fas fa-building-user w-5 text-center group-hover:text-cyan transition-colors"></i>
+                        <span>Painel da unidade</span>
                     </a>
                 </div>
-            </div>
+            @endcan
 
             {{-- Network administration --}}
             @can('network.settings')
@@ -209,32 +190,72 @@
                                  </a>
                             @endcan
 
-                            <span class="nav-subitem flex cursor-not-allowed items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-text-secondary/60"
-                                  title="Módulo em desenvolvimento">
-                                <span class="flex items-center gap-2">
-                                    <i class="fas fa-dumbbell w-4 text-center"></i>
-                                    <span>Modalidades</span>
-                                </span>
-                                <span class="badge badge-secondary text-[0.6rem]">Em breve</span>
-                            </span>
+                            @unless ($tenantContext->isPlatform())
+                                @can('modalities.view')
+                                    <a href="{{ route('admin.modalities.index') }}"
+                                       class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                              {{ request()->routeIs('admin.modalities.*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                         <i class="fas fa-dumbbell w-4 text-center"></i>
+                                         <span>Modalidades</span>
+                                     </a>
+                                @endcan
 
-                            @can('plans.manage')
-                                <a href="{{ route('admin.plans.index') }}"
-                                   class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
-                                          {{ request()->routeIs('admin.plans.*') ? 'text-cyan bg-cyan/10' : '' }}">
-                                     <i class="fas fa-layer-group w-4 text-center"></i>
-                                     <span>Planos SaaS</span>
-                                 </a>
-                            @else
-                                <span class="nav-subitem flex cursor-not-allowed items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-text-secondary/60"
-                                      title="Módulo em desenvolvimento">
-                                    <span class="flex items-center gap-2">
-                                        <i class="fas fa-layer-group w-4 text-center"></i>
-                                        <span>Planos</span>
-                                    </span>
-                                    <span class="badge badge-secondary text-[0.6rem]">Em breve</span>
-                                </span>
-                            @endcan
+                                @can('membership_plans.view')
+                                    <a href="{{ route('admin.membership-plans.index') }}"
+                                       class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                              {{ request()->routeIs('admin.membership-plans.*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                         <i class="fas fa-layer-group w-4 text-center"></i>
+                                         <span>Planos</span>
+                                     </a>
+                                @endcan
+
+                                @can('classes.manage')
+                                    <a href="{{ route('admin.classes.index') }}"
+                                       class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                              {{ request()->routeIs('admin.classes.*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                         <i class="fas fa-chalkboard w-4 text-center"></i>
+                                         <span>Turmas</span>
+                                     </a>
+                                @endcan
+
+                                @can('exercises.manage')
+                                    <a href="{{ route('admin.exercises.index') }}"
+                                       class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                              {{ request()->routeIs('admin.exercises.*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                         <i class="fas fa-person-running w-4 text-center"></i>
+                                         <span>Exercícios</span>
+                                     </a>
+                                @endcan
+
+                                @can('workouts.manage')
+                                    <a href="{{ route('admin.workout-plans.index') }}"
+                                       class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                              {{ request()->routeIs('admin.workout-plans.*') || request()->routeIs('admin.workout-sessions.*') || request()->routeIs('admin.workout-exercises.*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                         <i class="fas fa-clipboard-list w-4 text-center"></i>
+                                         <span>Treinos</span>
+                                     </a>
+                                @endcan
+
+                                @can('students.view')
+                                    <a href="{{ route('students.index') }}"
+                                       class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                              {{ request()->routeIs('students.*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                         <i class="fas fa-user-graduate w-4 text-center"></i>
+                                         <span>Alunos</span>
+                                     </a>
+                                @endcan
+                            @endunless
+
+                            @if ($tenantContext->isPlatform())
+                                @can('plans.manage')
+                                    <a href="{{ route('admin.plans.index') }}"
+                                       class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                              {{ request()->routeIs('admin.plans.*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                         <i class="fas fa-layer-group w-4 text-center"></i>
+                                         <span>Planos SaaS</span>
+                                     </a>
+                                @endcan
+                            @endif
                         </div>
                     </div>
                 </div>

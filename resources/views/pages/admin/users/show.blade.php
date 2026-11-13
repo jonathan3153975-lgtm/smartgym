@@ -119,6 +119,59 @@
             @endif
         </div>
     </div>
+
+    {{-- Permissions of the user's roles --}}
+    @php
+        $permissionGroups = $user->vinculos
+            ->flatMap(fn ($vinculo) => $vinculo->role?->permissions ?? collect())
+            ->unique('id')
+            ->sortBy('name')
+            ->groupBy('module');
+        $permissionsCount = $permissionGroups->sum(fn ($group) => $group->count());
+    @endphp
+
+    <div class="card">
+        <div class="mb-4 flex items-start justify-between gap-3">
+            <div>
+                <h2 class="flex items-center gap-2 font-semibold">
+                    <i class="fas fa-key text-lime"></i>
+                    Permissões de acesso
+                </h2>
+                <p class="mt-1 text-xs text-text-secondary">
+                    Permissões concedidas pelos perfis dos vínculos deste usuário.
+                </p>
+            </div>
+            <span class="badge badge-info">{{ $permissionsCount }}</span>
+        </div>
+
+        @if ($permissionsCount > 0)
+            <div class="space-y-4">
+                @foreach ($permissionGroups as $module => $permissions)
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-cyan">
+                            {{ ucfirst(str_replace('_', ' ', $module)) }}
+                        </p>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            @foreach ($permissions as $permission)
+                                <span class="rounded-lg border border-custom bg-bg-secondary px-2.5 py-1 text-xs"
+                                      title="{{ $permission->key }}">
+                                    {{ $permission->name }}
+                                </span>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <div class="py-8 text-center">
+                <i class="fas fa-key text-3xl text-text-secondary mb-3"></i>
+                <p class="font-medium">Nenhuma permissão concedida</p>
+                <p class="mt-1 text-sm text-text-secondary">
+                    Ajuste o perfil do vínculo para conceder permissões a este usuário.
+                </p>
+            </div>
+        @endif
+    </div>
 </div>
 
 @include('pages.admin.users._modal')

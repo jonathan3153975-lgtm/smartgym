@@ -3,18 +3,23 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\PaymentGatewaySetting;
 use App\Support\NetworkPolicy;
 use App\Support\NetworkTheme;
+use App\Support\Payments\MercadoPagoCredentials;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class NetworkSettingsController extends Controller
 {
+    public function __construct(private readonly MercadoPagoCredentials $mercadoPago) {}
+
     /**
      * Display the settings of the current user's network.
      */
@@ -28,8 +33,14 @@ class NetworkSettingsController extends Controller
 
         $policyDomains = NetworkPolicy::schema();
         $policyValues = NetworkPolicy::forNetwork($network);
+        $mercadoPagoSetting = $this->mercadoPago->forNetwork($network);
 
-        return view('pages.admin.network-settings.edit', compact('network', 'policyDomains', 'policyValues'));
+        return view('pages.admin.network-settings.edit', compact(
+            'network',
+            'policyDomains',
+            'policyValues',
+            'mercadoPagoSetting'
+        ));
     }
 
     /**
@@ -66,6 +77,12 @@ class NetworkSettingsController extends Controller
             'responsible_cpf' => ['nullable', 'string', 'max:14'],
             'responsible_email' => ['nullable', 'email', 'max:255'],
             'responsible_phone' => ['nullable', 'string', 'max:20'],
+            'mercado_pago_active' => ['nullable', 'boolean'],
+            'mercado_pago_environment' => ['nullable', Rule::in(array_keys(PaymentGatewaySetting::ENVIRONMENTS))],
+            'mercado_pago_public_key' => ['nullable', 'string', 'max:255'],
+            'mercado_pago_access_token' => ['nullable', 'string', 'max:1000'],
+            'mercado_pago_webhook_secret' => ['nullable', 'string', 'max:1000'],
+            'mercado_pago_clear' => ['nullable', 'boolean'],
         ];
 
         foreach (NetworkTheme::DEFAULTS as $mode => $palette) {
@@ -115,11 +132,20 @@ class NetworkSettingsController extends Controller
             'policies',
             'logo',
             'remove_logo',
+            'mercado_pago_active',
+            'mercado_pago_environment',
+            'mercado_pago_public_key',
+            'mercado_pago_access_token',
+            'mercado_pago_webhook_secret',
+            'mercado_pago_clear',
         ]);
 
         $update['settings'] = $settings;
 
-        $network->update($update);
+        DB::transaction(function () use ($network, $update, $validated) {
+            $network->update($update);
+            $this->mercadoPago->save($network, null, $validated);
+        });
 
         return redirect()->route('admin.network.settings.edit')
             ->with('success', 'Configurações da rede atualizadas com sucesso.');

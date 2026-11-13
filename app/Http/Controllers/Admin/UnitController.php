@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Network;
+use App\Models\PaymentGatewaySetting;
 use App\Models\Unit;
+use App\Support\Payments\MercadoPagoCredentials;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -15,6 +17,8 @@ use Illuminate\View\View;
 
 class UnitController extends Controller
 {
+    public function __construct(private readonly MercadoPagoCredentials $mercadoPago) {}
+
     /**
      * Display a listing of the units.
      */
@@ -60,7 +64,20 @@ class UnitController extends Controller
         abort_unless(TenantContext::current()->canAccessUnit($unit), 404);
 
         if (request()->wantsJson()) {
-            return response()->json($unit->load(['network', 'region']));
+            $unit->load(['network', 'region']);
+
+            $setting = $unit->network ? $this->mercadoPago->forUnit($unit->network, $unit) : null;
+
+            return response()->json(array_merge($unit->toArray(), [
+                'mercado_pago' => [
+                    'exists' => $setting !== null,
+                    'configured' => (bool) $setting?->isUsable(),
+                    'public_key' => $setting?->public_key,
+                    'environment' => $setting?->environment ?? 'sandbox',
+                    'is_active' => (bool) ($setting?->is_active ?? false),
+                    'network_configured' => (bool) ($unit->network ? $this->mercadoPago->forNetwork($unit->network)?->isUsable() : false),
+                ],
+            ]));
         }
 
         $unit->load(['network', 'region']);
@@ -69,7 +86,9 @@ class UnitController extends Controller
             ? $unit->network->regions()->orderBy('name')->get()
             : collect();
 
-        return view('pages.admin.units.show', compact('unit', 'regions'));
+        $mercadoPago = $unit->network ? $this->mercadoPago->summary($unit->network, $unit) : null;
+
+        return view('pages.admin.units.show', compact('unit', 'regions', 'mercadoPago'));
     }
 
     /**
@@ -85,8 +104,10 @@ class UnitController extends Controller
 
         $validated = $this->validateUnit($request);
         $validated['status'] = 'active';
+        $validated['identifier'] = $this->generateIdentifier();
 
         $unit = Unit::create($validated);
+        $this->mercadoPago->save($unit->network, $unit, $validated);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -113,9 +134,10 @@ class UnitController extends Controller
             $request->merge(['network_id' => $tenant->networkId()]);
         }
 
-        $validated = $this->validateUnit($request, $unit);
+        $validated = $this->validateUnit($request);
 
         $unit->update($validated);
+        $this->mercadoPago->save($unit->network, $unit, $validated);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -180,7 +202,7 @@ class UnitController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function validateUnit(Request $request, ?Unit $unit = null): array
+    private function validateUnit(Request $request): array
     {
         $validated = $request->validate([
             'network_id' => ['required', 'exists:networks,id'],
@@ -189,12 +211,6 @@ class UnitController extends Controller
                 Rule::exists('regions', 'id')->where('network_id', $request->input('network_id')),
             ],
             'name' => ['required', 'string', 'max:255'],
-            'identifier' => [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('units', 'identifier')->ignore($unit?->id),
-            ],
             'zip_code' => ['nullable', 'string', 'max:9'],
             'street' => ['nullable', 'string', 'max:255'],
             'number' => ['nullable', 'string', 'max:20'],
@@ -202,19 +218,47 @@ class UnitController extends Controller
             'neighborhood' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:255'],
             'state' => ['nullable', 'string', 'size:2'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'phone' => ['nullable', 'string', 'max:20'],
             'email' => ['nullable', 'email', 'max:255'],
             'status' => ['nullable', Rule::in(['active', 'inactive', 'maintenance'])],
+            'mercado_pago_active' => ['nullable', 'boolean'],
+            'mercado_pago_environment' => ['nullable', Rule::in(array_keys(PaymentGatewaySetting::ENVIRONMENTS))],
+            'mercado_pago_public_key' => ['nullable', 'string', 'max:255'],
+            'mercado_pago_access_token' => ['nullable', 'string', 'max:1000'],
+            'mercado_pago_webhook_secret' => ['nullable', 'string', 'max:1000'],
+            'mercado_pago_clear' => ['nullable', 'boolean'],
         ]);
 
         if (! empty($validated['state'])) {
             $validated['state'] = strtoupper($validated['state']);
         }
 
-        if ($unit && empty($validated['status'])) {
+        if (empty($validated['status'])) {
             unset($validated['status']);
         }
 
         return $validated;
+    }
+
+    /**
+     * Generate the next sequential unit code (UNID001, UNID002...).
+     */
+    private function generateIdentifier(): string
+    {
+        $last = Unit::withTrashed()
+            ->where('identifier', 'like', 'UNID%')
+            ->orderByDesc('id')
+            ->value('identifier');
+
+        $number = $last ? ((int) substr($last, 4)) + 1 : 1;
+
+        do {
+            $identifier = 'UNID'.str_pad((string) $number, 3, '0', STR_PAD_LEFT);
+            $number++;
+        } while (Unit::withTrashed()->where('identifier', $identifier)->exists());
+
+        return $identifier;
     }
 }

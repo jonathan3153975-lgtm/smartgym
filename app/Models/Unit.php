@@ -27,11 +27,15 @@ class Unit extends Model
         'phone',
         'email',
         'status',
+        'latitude',
+        'longitude',
         'settings',
     ];
 
     protected $casts = [
         'settings' => 'array',
+        'latitude' => 'float',
+        'longitude' => 'float',
         'deleted_at' => 'datetime',
     ];
 
@@ -55,6 +59,11 @@ class Unit extends Model
         return $this->hasMany(StudentUnit::class);
     }
 
+    public function paymentGatewaySettings(): HasMany
+    {
+        return $this->hasMany(PaymentGatewaySetting::class);
+    }
+
     public function auditLogs(): HasMany
     {
         return $this->hasMany(AuditLog::class);
@@ -63,6 +72,22 @@ class Unit extends Model
     public function isActive(): bool
     {
         return $this->status === 'active';
+    }
+
+    public function getFullAddressAttribute(): string
+    {
+        $street = trim(collect([$this->street, $this->number])->filter()->implode(', '));
+        $city = trim(collect([$this->city, $this->state])->filter()->implode(' - '));
+
+        $parts = array_filter([
+            $street,
+            $this->complement,
+            $this->neighborhood,
+            $city,
+            $this->zip_code ? 'CEP '.$this->zip_code : null,
+        ]);
+
+        return implode(', ', $parts);
     }
 
     public function getSettingsAttribute($value): array

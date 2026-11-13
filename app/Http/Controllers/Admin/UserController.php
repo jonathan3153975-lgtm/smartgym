@@ -75,7 +75,7 @@ class UserController extends Controller
 
         $user->load(['person', 'vinculos' => function ($vinculoQuery) use ($tenant) {
             $tenant->scopeUserVinculos($vinculoQuery)
-                ->with(['role', 'network', 'region', 'unit'])
+                ->with(['role.permissions', 'network', 'region', 'unit'])
                 ->orderByDesc('id');
         }]);
 
@@ -321,10 +321,31 @@ class UserController extends Controller
     private function validatePersonScope(array $validated, TenantContext $tenant): void
     {
         $person = Person::find($validated['person_id']);
+        $networkId = $validated['network_id'] ?? null;
 
-        if ($person && ! $tenant->canAccessPerson($person)) {
+        if (! $person) {
+            return;
+        }
+
+        if (! $tenant->canAccessPerson($person)) {
             throw ValidationException::withMessages([
                 'person_id' => 'A pessoa selecionada não está disponível para o seu escopo.',
+            ]);
+        }
+
+        if ($networkId === null) {
+            if ($person->network_id !== null) {
+                throw ValidationException::withMessages([
+                    'person_id' => 'Para usuários de plataforma, selecione uma pessoa de plataforma.',
+                ]);
+            }
+
+            return;
+        }
+
+        if ((int) $person->network_id !== (int) $networkId) {
+            throw ValidationException::withMessages([
+                'person_id' => 'A pessoa selecionada não pertence à rede do vínculo.',
             ]);
         }
     }

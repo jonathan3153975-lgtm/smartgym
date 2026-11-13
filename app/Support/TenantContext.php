@@ -7,10 +7,13 @@ use App\Models\Permission;
 use App\Models\Person;
 use App\Models\Region;
 use App\Models\Role;
+use App\Models\SchoolClass;
+use App\Models\Student;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\UserVinculo;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 class TenantContext
 {
@@ -43,6 +46,18 @@ class TenantContext
     public function isPlatform(): bool
     {
         return $this->vinculo()?->role?->level === 'platform';
+    }
+
+    /**
+     * Active organizational level (network, region, unit or platform).
+     */
+    public function level(): string
+    {
+        if ($this->isPlatform()) {
+            return 'platform';
+        }
+
+        return $this->vinculo()?->role?->level ?? 'unit';
     }
 
     public function networkId(): ?int
@@ -170,6 +185,87 @@ class TenantContext
     }
 
     /**
+     * Apply the network/region/unit scope to a student query.
+     */
+    public function scopeStudents(Builder $query): Builder
+    {
+        if ($this->isPlatform()) {
+            return $query;
+        }
+
+        $networkId = $this->networkId();
+
+        if (! $networkId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $query->where('network_id', $networkId);
+
+        if ($unitId = $this->unitId()) {
+            return $query->whereHas('units', fn ($unitQuery) => $unitQuery->where('unit_id', $unitId));
+        }
+
+        if ($regionId = $this->regionId()) {
+            return $query->whereHas('units.unit', fn ($regionQuery) => $regionQuery->where('region_id', $regionId));
+        }
+
+        return $query;
+    }
+
+    public function studentsQuery(): Builder
+    {
+        return $this->scopeStudents(Student::query())->orderBy('name');
+    }
+
+    public function scopeClasses(Builder $query): Builder
+    {
+        if ($this->isPlatform()) {
+            return $query;
+        }
+
+        $networkId = $this->networkId();
+
+        if (! $networkId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $query->where('network_id', $networkId);
+
+        if ($unitId = $this->unitId()) {
+            return $query->where('unit_id', $unitId);
+        }
+
+        if ($regionId = $this->regionId()) {
+            return $query->whereHas('unit', fn ($unitQuery) => $unitQuery->where('region_id', $regionId));
+        }
+
+        return $query;
+    }
+
+    public function classesQuery(): Builder
+    {
+        return $this->scopeClasses(SchoolClass::query())->orderBy('name');
+    }
+
+    public function canAccessClass(SchoolClass $class): bool
+    {
+        if ($this->isPlatform()) {
+            return true;
+        }
+
+        return $this->scopeClasses(SchoolClass::query()->whereKey($class->id))->exists();
+    }
+
+    public function canAccessStudent(Student $student): bool
+    {
+        if ($this->isPlatform()) {
+            return true;
+        }
+
+        return $this->scopeStudents(Student::query()->whereKey($student->id))->exists();
+    }
+
+    /**
      * Apply the organizational scope to a user query.
      */
     public function scopeUsers(Builder $query): Builder
@@ -200,7 +296,7 @@ class TenantContext
     /**
      * Apply the scope to a user vinculo query.
      */
-    public function scopeUserVinculos(Builder $query): Builder
+    public function scopeUserVinculos(Builder|Relation $query): Builder|Relation
     {
         if ($this->isPlatform()) {
             return $query;

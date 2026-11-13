@@ -18,17 +18,21 @@
     );
 
     $tabHasErrors = [
-        'empresa' => collect($errorKeys)->contains(fn (string $key): bool => ! $hasErrorPrefix('theme') && ! $hasErrorPrefix('policies')),
+        'empresa' => collect($errorKeys)->contains(fn (string $key): bool => ! $hasErrorPrefix('theme') && ! $hasErrorPrefix('policies') && ! $hasErrorPrefix('mercado_pago')),
         'tema' => $hasErrorPrefix('theme'),
         'politica' => $hasErrorPrefix('policies'),
+        'pagamentos' => $hasErrorPrefix('mercado_pago'),
     ];
 
-    $initialTab = $tabHasErrors['tema'] ? 'tema' : ($tabHasErrors['politica'] ? 'politica' : 'empresa');
+    $initialTab = $tabHasErrors['tema']
+        ? 'tema'
+        : ($tabHasErrors['politica'] ? 'politica' : ($tabHasErrors['pagamentos'] ? 'pagamentos' : 'empresa'));
 
     $settingsTabs = [
         'empresa' => ['label' => 'Dados da empresa', 'icon' => 'fa-building'],
         'tema' => ['label' => 'Tema', 'icon' => 'fa-palette'],
         'politica' => ['label' => 'Política', 'icon' => 'fa-sitemap'],
+        'pagamentos' => ['label' => 'Pagamentos', 'icon' => 'fa-credit-card'],
     ];
 @endphp
 
@@ -200,6 +204,26 @@
                                     </div>
                                 </div>
                             </div>
+
+                            {{-- Student portal link --}}
+                            <div class="rounded-xl border border-custom bg-bg-secondary p-4">
+                                <div class="flex items-center justify-between gap-3">
+                                    <label for="student_portal_url" class="label-field mb-0">Portal do aluno</label>
+                                    <span class="badge badge-info">Link de divulgação</span>
+                                </div>
+                                <p class="mt-1 text-xs text-text-secondary">
+                                    Divulgue este endereço para os alunos fazerem login no portal da rede.
+                                </p>
+                                <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                                    <input type="text" id="student_portal_url" readonly
+                                           value="{{ route('student.portal.index', $network) }}"
+                                           class="input-field font-mono text-xs">
+                                    <button type="button" onclick="copyStudentPortalUrl()" class="btn-outline whitespace-nowrap">
+                                        <i class="fas fa-copy mr-2"></i>
+                                        Copiar
+                                    </button>
+                                </div>
+                            </div>
                         </section>
                     </div>
 
@@ -285,7 +309,7 @@
                                 <div>
                                     <label for="responsible_phone" class="label-field">Telefone do responsável</label>
                                     <input type="text" id="responsible_phone" name="responsible_phone" maxlength="20" class="input-field"
-                                           value="{{ old('responsible_phone', $network->responsible_phone) }}">
+                                           value="{{ old('responsible_phone', $network->responsible_phone) }}" data-phone>
                                 </div>
                             </div>
                         </section>
@@ -441,6 +465,108 @@
                     </section>
                 </div>
             </div>
+
+            {{-- Pagamentos --}}
+            <div id="settings-panel-pagamentos"
+                 data-settings-panel="pagamentos"
+                 role="tabpanel"
+                 aria-labelledby="settings-tab-pagamentos"
+                 class="{{ $initialTab === 'pagamentos' ? '' : 'hidden' }}">
+                <div class="space-y-6">
+                    <section class="card space-y-5">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <h2 class="flex items-center gap-2 font-semibold">
+                                    <i class="fas fa-credit-card text-cyan"></i>
+                                    Mercado Pago da rede
+                                </h2>
+                                <p class="mt-1 text-xs text-text-secondary">
+                                    Credenciais usadas no checkout das unidades que não possuem credenciais próprias.
+                                </p>
+                            </div>
+
+                            @if ($mercadoPagoSetting?->isUsable())
+                                <span class="badge badge-success">Configurado</span>
+                            @elseif ($mercadoPagoSetting)
+                                <span class="badge badge-warning">Inativo</span>
+                            @else
+                                <span class="badge badge-secondary">Não configurado</span>
+                            @endif
+                        </div>
+
+                        <div class="rounded-xl border border-custom bg-bg-secondary p-4 text-sm text-text-secondary">
+                            <p class="flex items-start gap-2">
+                                <i class="fas fa-circle-info mt-0.5 text-cyan"></i>
+                                <span>
+                                    Cada unidade pode ter as próprias credenciais do Mercado Pago. Quando a unidade não tiver,
+                                    o checkout utiliza automaticamente as credenciais configuradas aqui na rede.
+                                    Os tokens são armazenados criptografados.
+                                </span>
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div class="sm:col-span-2">
+                                <input type="hidden" name="mercado_pago_active" value="0">
+                                <label class="flex cursor-pointer items-center gap-2">
+                                    <input type="checkbox" id="mercado_pago_active" name="mercado_pago_active" value="1"
+                                           @checked(old('mercado_pago_active', $mercadoPagoSetting?->is_active ?? true))>
+                                    <span class="text-sm font-medium">Ativar pagamento online com Mercado Pago</span>
+                                </label>
+                            </div>
+
+                            <div>
+                                <label for="mercado_pago_environment" class="label-field">Ambiente</label>
+                                <select id="mercado_pago_environment" name="mercado_pago_environment" class="input-field">
+                                    @foreach (\App\Models\PaymentGatewaySetting::ENVIRONMENTS as $environmentValue => $environmentLabel)
+                                        <option value="{{ $environmentValue }}"
+                                                @selected(old('mercado_pago_environment', $mercadoPagoSetting?->environment ?? 'sandbox') === $environmentValue)>
+                                            {{ $environmentLabel }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="mercado_pago_public_key" class="label-field">Public Key</label>
+                                <input type="text" id="mercado_pago_public_key" name="mercado_pago_public_key"
+                                       maxlength="255" class="input-field"
+                                       value="{{ old('mercado_pago_public_key', $mercadoPagoSetting?->public_key) }}"
+                                       placeholder="APP_USR-...">
+                            </div>
+
+                            <div>
+                                <label for="mercado_pago_access_token" class="label-field">Access Token</label>
+                                <input type="password" id="mercado_pago_access_token" name="mercado_pago_access_token"
+                                       maxlength="1000" class="input-field" autocomplete="new-password"
+                                       placeholder="{{ $mercadoPagoSetting?->isUsable() ? 'Configurado — deixe em branco para manter' : 'APP_USR-...' }}">
+                            </div>
+
+                            <div>
+                                <label for="mercado_pago_webhook_secret" class="label-field">Segredo do webhook</label>
+                                <input type="password" id="mercado_pago_webhook_secret" name="mercado_pago_webhook_secret"
+                                       maxlength="1000" class="input-field" autocomplete="new-password"
+                                       placeholder="{{ $mercadoPagoSetting?->webhook_secret ? 'Configurado — deixe em branco para manter' : 'Opcional' }}">
+                                <p class="mt-1 text-xs text-text-secondary">
+                                    Usado para validar a assinatura das notificações do Mercado Pago.
+                                </p>
+                            </div>
+                        </div>
+
+                        @if ($mercadoPagoSetting)
+                            <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-red">
+                                <input type="checkbox" name="mercado_pago_clear" value="1" @checked(old('mercado_pago_clear'))>
+                                Remover as credenciais da rede
+                            </label>
+                        @endif
+
+                        <p class="text-xs text-text-secondary">
+                            <i class="fas fa-shield-halved mr-1"></i>
+                            As credenciais são obtidas no painel de desenvolvedores do Mercado Pago.
+                        </p>
+                    </section>
+                </div>
+            </div>
         </div>
 
         <div class="flex flex-col-reverse justify-end gap-3 border-t border-custom pt-4 sm:flex-row">
@@ -593,5 +719,32 @@
 
         showPalette(themeSelect.value === 'light' ? 'light' : 'dark');
     })();
+
+    function copyStudentPortalUrl() {
+        const input = document.getElementById('student_portal_url');
+
+        if (!input) {
+            return;
+        }
+
+        input.select();
+        input.setSelectionRange(0, input.value.length);
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(input.value)
+                .then(function () {
+                    alertSuccess('Link copiado!', 'O link do portal do aluno foi copiado.');
+                })
+                .catch(function () {
+                    document.execCommand('copy');
+                    alertSuccess('Link copiado!', 'O link do portal do aluno foi copiado.');
+                });
+
+            return;
+        }
+
+        document.execCommand('copy');
+        alertSuccess('Link copiado!', 'O link do portal do aluno foi copiado.');
+    }
 </script>
 @endsection

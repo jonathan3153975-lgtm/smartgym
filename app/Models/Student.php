@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Student extends Model
@@ -76,6 +77,61 @@ class Student extends Model
         return $this->hasMany(StudentObservation::class);
     }
 
+    public function account(): HasOne
+    {
+        return $this->hasOne(StudentAccount::class);
+    }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(StudentSubscription::class);
+    }
+
+    public function assessments(): HasMany
+    {
+        return $this->hasMany(StudentAssessment::class)
+            ->orderByDesc('submitted_at')
+            ->orderByDesc('id');
+    }
+
+    public function assessment(): HasOne
+    {
+        return $this->hasOne(StudentAssessment::class)->latestOfMany();
+    }
+
+    public function workoutPlans(): HasMany
+    {
+        return $this->hasMany(WorkoutPlan::class);
+    }
+
+    public function workoutLogs(): HasMany
+    {
+        return $this->hasMany(WorkoutLog::class);
+    }
+
+    public function measurements(): HasMany
+    {
+        return $this->hasMany(BodyMeasurement::class)->orderByDesc('measured_at');
+    }
+
+    public function checkins(): HasMany
+    {
+        return $this->hasMany(StudentCheckin::class)->orderByDesc('checked_in_at');
+    }
+
+    public function classBookings(): HasMany
+    {
+        return $this->hasMany(ClassBooking::class)->orderByDesc('booked_for');
+    }
+
+    public function activeSubscription(): ?StudentSubscription
+    {
+        return $this->subscriptions()
+            ->active()
+            ->latest('starts_at')
+            ->first();
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -89,6 +145,36 @@ class Student extends Model
     public function isActive(): bool
     {
         return $this->status === 'active';
+    }
+
+    public function getAvatarUrlAttribute(): ?string
+    {
+        if (! $this->avatar) {
+            return null;
+        }
+
+        return route('student.avatar', ['student' => $this, 'v' => substr(md5($this->avatar), 0, 8)]);
+    }
+
+    public function getGenderLabelAttribute(): string
+    {
+        return match ($this->gender) {
+            'male' => 'Masculino',
+            'female' => 'Feminino',
+            'other' => 'Outro',
+            'prefer_not_to_say' => 'Prefiro não informar',
+            default => '—',
+        };
+    }
+
+    public function getStatusLabelAttribute(): string
+    {
+        return match ($this->status) {
+            'active' => 'Ativo',
+            'inactive' => 'Inativo',
+            'pending' => 'Pendente',
+            default => '—',
+        };
     }
 
     public function getFormattedCpfAttribute(): ?string

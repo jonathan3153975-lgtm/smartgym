@@ -103,6 +103,43 @@
             </div>
         </div>
     </div>
+
+    <div class="card">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 class="flex items-center gap-2 font-semibold">
+                    <i class="fas fa-credit-card text-cyan"></i>
+                    Pagamento online
+                </h2>
+                <p class="mt-1 text-xs text-text-secondary">
+                    Mercado Pago usado no checkout desta unidade.
+                </p>
+            </div>
+
+            @if ($mercadoPago['unit_configured'] ?? false)
+                <span class="badge badge-success">Credenciais da unidade</span>
+            @elseif ($mercadoPago['network_configured'] ?? false)
+                <span class="badge badge-info">Usando credenciais da rede</span>
+            @else
+                <span class="badge badge-warning">Não configurado</span>
+            @endif
+        </div>
+
+        <p class="mt-3 text-sm text-text-secondary">
+            @if ($mercadoPago['source'] ?? null)
+                Ambiente:
+                <span class="font-medium text-text-primary">
+                    {{ \App\Models\PaymentGatewaySetting::ENVIRONMENTS[$mercadoPago['environment']] ?? $mercadoPago['environment'] }}
+                </span>
+                &middot; origem:
+                <span class="font-medium text-text-primary">
+                    {{ $mercadoPago['source'] === 'unit' ? 'unidade' : 'rede' }}
+                </span>
+            @else
+                Nenhuma credencial disponível. Configure na unidade ou nas configurações da rede.
+            @endif
+        </p>
+    </div>
 </div>
 
 @include('pages.admin.units._modal', ['network' => $unit->network, 'region' => $unit->region])

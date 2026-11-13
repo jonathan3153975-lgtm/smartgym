@@ -243,6 +243,42 @@ class PeopleModuleTest extends TestCase
     }
 
     /** @test */
+    public function test_network_users_must_be_linked_to_a_person_of_the_same_network(): void
+    {
+        $platformAdmin = User::where('email', 'jonathan3153975@gmail.com')->firstOrFail();
+        $this->actingAs($platformAdmin);
+
+        $role = Role::where('name', 'network_admin')->firstOrFail();
+        $platformPerson = $platformAdmin->person;
+
+        $this->postJson(route('admin.users.store'), [
+            'person_id' => $platformPerson->id,
+            'name' => 'Usuário Rede',
+            'email' => 'rede.person.rule@smartgym.com.br',
+            'password' => 'Senha12345',
+            'password_confirmation' => 'Senha12345',
+            'network_id' => $this->network->id,
+            'role_id' => $role->id,
+            'vinculo_status' => 'active',
+        ])->assertStatus(422)->assertJsonValidationErrors('person_id');
+
+        $networkPerson = Person::factory()->staff()->create([
+            'network_id' => $this->network->id,
+        ]);
+
+        $this->postJson(route('admin.users.store'), [
+            'person_id' => $networkPerson->id,
+            'name' => 'Usuário Rede',
+            'email' => 'rede.person.rule@smartgym.com.br',
+            'password' => 'Senha12345',
+            'password_confirmation' => 'Senha12345',
+            'network_id' => $this->network->id,
+            'role_id' => $role->id,
+            'vinculo_status' => 'active',
+        ])->assertOk()->assertJsonPath('success', true);
+    }
+
+    /** @test */
     public function test_user_creation_requires_a_registered_person(): void
     {
         $role = Role::where('name', 'network_admin')->firstOrFail();

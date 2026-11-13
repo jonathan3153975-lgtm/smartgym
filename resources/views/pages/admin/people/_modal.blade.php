@@ -109,13 +109,13 @@
                     <div>
                         <label for="person_phone" class="label-field">Telefone</label>
                         <input type="text" id="person_phone" name="phone" maxlength="20" class="input-field"
-                               placeholder="(00) 0000-0000">
+                               placeholder="(00) 0000-0000" data-phone>
                     </div>
 
                     <div>
                         <label for="person_whatsapp" class="label-field">WhatsApp</label>
                         <input type="text" id="person_whatsapp" name="whatsapp" maxlength="20" class="input-field"
-                               placeholder="(00) 00000-0000">
+                               placeholder="(00) 00000-0000" data-phone>
                     </div>
                 </div>
             </section>

@@ -4,7 +4,7 @@
     $userRoleOptions = $tenant->roleOptionsQuery()->orderBy('level')->orderBy('display_name')->get(['id', 'display_name', 'level']);
     $userRegionOptions = $tenant->regionsQuery()->get(['id', 'name', 'network_id']);
     $userUnitOptions = $tenant->unitsQuery()->get(['id', 'name', 'network_id', 'region_id']);
-    $userPersonOptions = $tenant->peopleQuery()->get(['id', 'name', 'person_type', 'category', 'document']);
+    $userPersonOptions = $tenant->peopleQuery()->get(['id', 'name', 'person_type', 'category', 'document', 'email', 'network_id']);
     $tenantNetworkId = $tenant->networkId();
 @endphp
 
@@ -39,6 +39,7 @@
                             <option value="">Selecione uma pessoa cadastrada</option>
                             @foreach ($userPersonOptions as $personOption)
                                 <option value="{{ $personOption->id }}"
+                                        data-network-id="{{ $personOption->network_id }}"
                                         data-name="{{ $personOption->name }}"
                                         data-email="{{ $personOption->email }}">
                                     {{ $personOption->name }}
@@ -175,6 +176,10 @@
         const passwordHint = document.getElementById('userPasswordHint');
         const regionOptions = Array.from(regionSelect.querySelectorAll('option[data-network-id]'));
         const unitOptions = Array.from(unitSelect.querySelectorAll('option[data-network-id]'));
+        const personSelect = document.getElementById('user_person_id');
+        const personOptions = personSelect
+            ? Array.from(personSelect.querySelectorAll('option[data-network-id]'))
+            : [];
 
         if (!modal || !form) {
             return;
@@ -243,11 +248,28 @@
             });
         }
 
+        function filterPersons() {
+            const networkId = networkSelect.value;
+
+            personOptions.forEach(function (option) {
+                const optionNetworkId = option.dataset.networkId ?? '';
+                const matches = networkId ? optionNetworkId === networkId : optionNetworkId === '';
+
+                option.hidden = !matches;
+                option.disabled = !matches;
+
+                if (!matches && option.selected) {
+                    personSelect.value = '';
+                }
+            });
+        }
+
         networkSelect.addEventListener('change', function () {
             regionSelect.value = '';
             unitSelect.value = '';
             filterRegions();
             filterUnits();
+            filterPersons();
         });
 
         regionSelect.addEventListener('change', function () {
@@ -282,7 +304,6 @@
                         return response.json();
                     })
                     .then(function (data) {
-                        fields.person_id.value = data.person_id ?? '';
                         fields.name.value = data.name ?? '';
                         fields.email.value = data.email ?? '';
                         fields.role_id.value = data.role_id ?? '';
@@ -290,9 +311,11 @@
                         fields.network_id.value = data.network_id ?? '';
                         filterRegions();
                         filterUnits();
+                        filterPersons();
                         fields.region_id.value = data.region_id ?? '';
                         filterUnits();
                         fields.unit_id.value = data.unit_id ?? '';
+                        fields.person_id.value = data.person_id ?? '';
                     })
                     .catch(function (error) {
                         alertError('Erro', error.message);
@@ -306,6 +329,7 @@
                 form.action = '{{ route('admin.users.store') }}';
                 filterRegions();
                 filterUnits();
+                filterPersons();
             }
 
             modal.classList.remove('hidden');

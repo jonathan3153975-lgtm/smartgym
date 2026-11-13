@@ -31,6 +31,16 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Access to the management area: platform operators and network/region/unit managers.
+        // Operational panel for unit-level staff (network/region managers may select a unit).
+        Gate::define('unit.panel', function (User $user) {
+            $vinculo = $user->getActiveVinculo();
+
+            return $vinculo
+                && $vinculo->network_id
+                && $vinculo->role?->level !== 'platform'
+                && $user->hasPermission('students.view');
+        });
+
         Gate::define('admin.manage', function (User $user) {
             return $user->hasAnyPermission([
                 'admin.access',
@@ -39,6 +49,12 @@ class AppServiceProvider extends ServiceProvider
                 'units.manage',
                 'people.view',
                 'people.manage',
+                'modalities.view',
+                'modalities.manage',
+                'membership_plans.view',
+                'classes.manage',
+                'exercises.manage',
+                'workouts.manage',
                 'users.manage',
                 'roles.manage',
                 'plans.manage',

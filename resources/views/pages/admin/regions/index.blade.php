@@ -3,7 +3,7 @@
 @section('title', 'Cadastro de Regiões')
 
 @section('content')
-<div class="container mx-auto max-w-6xl p-4 sm:p-6">
+<div class="p-4 sm:p-6">
     <div class="card">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>

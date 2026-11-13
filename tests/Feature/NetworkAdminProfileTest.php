@@ -51,7 +51,6 @@ class NetworkAdminProfileTest extends TestCase
             ->assertSee('<span>Perfis</span>', false)
             ->assertSee('<span>Modalidades</span>', false)
             ->assertSee('<span>Planos</span>', false)
-            ->assertSee('Em breve')
             ->assertDontSee('<span>Redes</span>', false)
             ->assertDontSee('<span>Planos SaaS</span>', false)
             ->getContent();

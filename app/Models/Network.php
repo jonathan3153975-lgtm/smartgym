@@ -66,6 +66,11 @@ class Network extends Model
         return $this->hasMany(Student::class);
     }
 
+    public function paymentGatewaySettings(): HasMany
+    {
+        return $this->hasMany(PaymentGatewaySetting::class);
+    }
+
     public function auditLogs(): HasMany
     {
         return $this->hasMany(AuditLog::class);

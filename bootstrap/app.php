@@ -16,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             TenantMiddleware::class,
         ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/mercado-pago',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

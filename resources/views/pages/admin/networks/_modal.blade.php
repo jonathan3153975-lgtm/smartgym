@@ -195,7 +195,8 @@
                                name="responsible_phone"
                                maxlength="20"
                                class="input-field"
-                               placeholder="(00) 00000-0000">
+                               placeholder="(00) 00000-0000"
+                               data-phone>
                     </div>
                 </div>
             </section>

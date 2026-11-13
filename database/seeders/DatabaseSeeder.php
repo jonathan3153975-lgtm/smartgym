@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             DeveloperUserSeeder::class,
             PeopleSeeder::class,
+            ExerciseSeeder::class,
         ]);
     }
 }
@@ -195,6 +196,22 @@ class PermissionSeeder extends Seeder
             ['key' => 'people.create', 'name' => 'Criar pessoas', 'module' => 'people', 'action' => 'create'],
             ['key' => 'people.edit', 'name' => 'Editar pessoas', 'module' => 'people', 'action' => 'edit'],
             ['key' => 'people.delete', 'name' => 'Excluir pessoas', 'module' => 'people', 'action' => 'delete'],
+
+            // Modalities permissions
+            ['key' => 'modalities.manage', 'name' => 'Gerenciar categorias de modalidades', 'module' => 'modalities', 'action' => 'manage'],
+            ['key' => 'modalities.view', 'name' => 'Visualizar modalidades', 'module' => 'modalities', 'action' => 'view'],
+            ['key' => 'modalities.create', 'name' => 'Criar modalidades', 'module' => 'modalities', 'action' => 'create'],
+            ['key' => 'modalities.edit', 'name' => 'Editar modalidades', 'module' => 'modalities', 'action' => 'edit'],
+            ['key' => 'modalities.delete', 'name' => 'Excluir modalidades', 'module' => 'modalities', 'action' => 'delete'],
+
+            // Exercises permissions
+            ['key' => 'exercises.manage', 'name' => 'Gerenciar exercícios', 'module' => 'exercises', 'action' => 'manage'],
+
+            // Membership plans permissions
+            ['key' => 'membership_plans.view', 'name' => 'Visualizar planos', 'module' => 'membership_plans', 'action' => 'view'],
+            ['key' => 'membership_plans.create', 'name' => 'Criar planos', 'module' => 'membership_plans', 'action' => 'create'],
+            ['key' => 'membership_plans.edit', 'name' => 'Editar planos', 'module' => 'membership_plans', 'action' => 'edit'],
+            ['key' => 'membership_plans.delete', 'name' => 'Excluir planos', 'module' => 'membership_plans', 'action' => 'delete'],
 
             // Future module permissions (placeholders)
             ['key' => 'plans.manage', 'name' => 'Gerenciar planos', 'module' => 'plans', 'action' => 'manage'],
@@ -469,6 +486,67 @@ class RoleSeeder extends Seeder
                 'students.edit',
             ])->pluck('id')
         );
+
+        // Modalities and membership plans are available to every network profile.
+        // Edit/delete is additionally restricted by the record creation level.
+        $businessPermissions = $allPermissions->whereIn('key', [
+            'modalities.manage',
+            'modalities.view',
+            'modalities.create',
+            'modalities.edit',
+            'modalities.delete',
+            'membership_plans.view',
+            'membership_plans.create',
+            'membership_plans.edit',
+            'membership_plans.delete',
+            'classes.manage',
+        ])->pluck('id');
+
+        foreach ([
+            $networkAdmin,
+            $networkManager,
+            $regionAdmin,
+            $regionManager,
+            $unitAdmin,
+            $unitManager,
+            $receptionist,
+            $instructor,
+            $sales,
+        ] as $role) {
+            $role->permissions()->syncWithoutDetaching($businessPermissions);
+        }
+
+        // Workout management is restricted to management and instructor profiles.
+        $workoutPermissions = $allPermissions->whereIn('key', ['workouts.manage'])->pluck('id');
+
+        foreach ([
+            $networkAdmin,
+            $networkManager,
+            $regionAdmin,
+            $regionManager,
+            $unitAdmin,
+            $unitManager,
+            $instructor,
+        ] as $role) {
+            $role->permissions()->syncWithoutDetaching($workoutPermissions);
+        }
+
+        // The exercise catalog is available to every staff profile (students only consume it).
+        $exercisePermissions = $allPermissions->whereIn('key', ['exercises.manage'])->pluck('id');
+
+        foreach ([
+            $networkAdmin,
+            $networkManager,
+            $regionAdmin,
+            $regionManager,
+            $unitAdmin,
+            $unitManager,
+            $receptionist,
+            $instructor,
+            $sales,
+        ] as $role) {
+            $role->permissions()->syncWithoutDetaching($exercisePermissions);
+        }
     }
 }
 

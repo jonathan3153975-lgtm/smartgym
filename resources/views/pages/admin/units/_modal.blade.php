@@ -71,18 +71,6 @@
                     </div>
 
                     <div>
-                        <label for="unit_identifier" class="label-field">Código da unidade <span class="text-red">*</span></label>
-                        <input type="text"
-                               id="unit_identifier"
-                               name="identifier"
-                               required
-                               maxlength="50"
-                               class="input-field uppercase"
-                               placeholder="UNID001">
-                        <p class="text-xs text-text-secondary mt-1">Código único da unidade na plataforma.</p>
-                    </div>
-
-                    <div>
                         <label for="unit_status" class="label-field">Status <span class="text-red">*</span></label>
                         <select id="unit_status" name="status" required class="input-field">
                             <option value="active">Ativa</option>
@@ -173,6 +161,34 @@
                                placeholder="PR"
                                data-cep-field="state">
                     </div>
+
+                    <div class="sm:col-span-3">
+                        <label for="unit_latitude" class="label-field">Latitude</label>
+                        <input type="number"
+                               id="unit_latitude"
+                               name="latitude"
+                               step="0.0000001"
+                               min="-90"
+                               max="90"
+                               class="input-field"
+                               placeholder="-25.4284">
+                    </div>
+
+                    <div class="sm:col-span-3">
+                        <label for="unit_longitude" class="label-field">Longitude</label>
+                        <input type="number"
+                               id="unit_longitude"
+                               name="longitude"
+                               step="0.0000001"
+                               min="-180"
+                               max="180"
+                               class="input-field"
+                               placeholder="-49.2733">
+                    </div>
+
+                    <p class="text-xs text-text-secondary sm:col-span-6">
+                        Opcional. As coordenadas permitem calcular a distância das unidades para o aluno no portal.
+                    </p>
                 </div>
             </section>
 
@@ -188,7 +204,8 @@
                                name="phone"
                                maxlength="20"
                                class="input-field"
-                               placeholder="(00) 00000-0000">
+                               placeholder="(00) 00000-0000"
+                               data-phone>
                     </div>
 
                     <div>
@@ -201,6 +218,62 @@
                                placeholder="unidade@rede.com.br">
                     </div>
                 </div>
+            </section>
+
+            {{-- Mercado Pago --}}
+            <section class="space-y-4">
+                <div class="flex items-center justify-between gap-3">
+                    <h3 class="text-sm font-semibold uppercase tracking-wider text-text-secondary">Pagamento online</h3>
+                    <span id="unitMercadoPagoStatus" class="badge badge-secondary">Opcional</span>
+                </div>
+
+                <p id="unitMercadoPagoHint" class="text-xs text-text-secondary">
+                    Sem credenciais próprias, o checkout usa as credenciais do Mercado Pago da rede.
+                </p>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div class="sm:col-span-2">
+                        <input type="hidden" name="mercado_pago_active" value="0">
+                        <label class="flex cursor-pointer items-center gap-2">
+                            <input type="checkbox" id="unit_mercado_pago_active" name="mercado_pago_active" value="1">
+                            <span class="text-sm">Ativar Mercado Pago nesta unidade</span>
+                        </label>
+                    </div>
+
+                    <div>
+                        <label for="unit_mercado_pago_environment" class="label-field">Ambiente</label>
+                        <select id="unit_mercado_pago_environment" name="mercado_pago_environment" class="input-field">
+                            @foreach (\App\Models\PaymentGatewaySetting::ENVIRONMENTS as $environmentValue => $environmentLabel)
+                                <option value="{{ $environmentValue }}">{{ $environmentLabel }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="unit_mercado_pago_public_key" class="label-field">Public Key</label>
+                        <input type="text" id="unit_mercado_pago_public_key" name="mercado_pago_public_key"
+                               maxlength="255" class="input-field" placeholder="APP_USR-...">
+                    </div>
+
+                    <div>
+                        <label for="unit_mercado_pago_access_token" class="label-field">Access Token</label>
+                        <input type="password" id="unit_mercado_pago_access_token" name="mercado_pago_access_token"
+                               maxlength="1000" class="input-field" autocomplete="new-password"
+                               placeholder="Deixe em branco para manter">
+                    </div>
+
+                    <div>
+                        <label for="unit_mercado_pago_webhook_secret" class="label-field">Segredo do webhook</label>
+                        <input type="password" id="unit_mercado_pago_webhook_secret" name="mercado_pago_webhook_secret"
+                               maxlength="1000" class="input-field" autocomplete="new-password"
+                               placeholder="Opcional">
+                    </div>
+                </div>
+
+                <label id="unitMercadoPagoClearWrapper" class="hidden cursor-pointer items-center gap-2 text-sm text-red">
+                    <input type="checkbox" name="mercado_pago_clear" value="1">
+                    Remover as credenciais desta unidade
+                </label>
             </section>
 
             <p id="unitFormError"
@@ -232,6 +305,12 @@
         const networkSelect = document.getElementById('unit_network_id');
         const regionSelect = document.getElementById('unit_region_id');
         const regionOptions = Array.from(regionSelect.querySelectorAll('option[data-network-id]'));
+        const mercadoPagoActive = document.getElementById('unit_mercado_pago_active');
+        const mercadoPagoPublicKey = document.getElementById('unit_mercado_pago_public_key');
+        const mercadoPagoEnvironment = document.getElementById('unit_mercado_pago_environment');
+        const mercadoPagoStatus = document.getElementById('unitMercadoPagoStatus');
+        const mercadoPagoHint = document.getElementById('unitMercadoPagoHint');
+        const mercadoPagoClearWrapper = document.getElementById('unitMercadoPagoClearWrapper');
 
         if (!modal || !form) {
             return;
@@ -241,7 +320,6 @@
             network_id: networkSelect,
             region_id: regionSelect,
             name: document.getElementById('unit_name'),
-            identifier: document.getElementById('unit_identifier'),
             status: document.getElementById('unit_status'),
             zip_code: document.getElementById('unit_zip_code'),
             street: document.getElementById('unit_street'),
@@ -250,11 +328,48 @@
             neighborhood: document.getElementById('unit_neighborhood'),
             city: document.getElementById('unit_city'),
             state: document.getElementById('unit_state'),
+            latitude: document.getElementById('unit_latitude'),
+            longitude: document.getElementById('unit_longitude'),
             phone: document.getElementById('unit_phone'),
             email: document.getElementById('unit_email'),
+            mercado_pago_public_key: mercadoPagoPublicKey,
+            mercado_pago_environment: mercadoPagoEnvironment,
         };
 
         let currentUnitId = null;
+
+        function setMercadoPagoState(data) {
+            const payload = data || {};
+            const exists = Boolean(payload.exists);
+
+            mercadoPagoActive.checked = Boolean(payload.is_active);
+            mercadoPagoPublicKey.value = payload.public_key ?? '';
+            mercadoPagoEnvironment.value = payload.environment ?? 'sandbox';
+            mercadoPagoClearWrapper.classList.toggle('hidden', !exists);
+            mercadoPagoClearWrapper.style.display = exists ? 'flex' : '';
+
+            let status = 'Opcional';
+            let badge = 'badge-secondary';
+            let hint = 'Sem credenciais próprias, o checkout usa as credenciais do Mercado Pago da rede.';
+
+            if (exists && payload.configured) {
+                status = 'Configurado';
+                badge = 'badge-success';
+                hint = 'Credenciais desta unidade configuradas. Deixe o token em branco para manter as atuais.';
+            } else if (exists) {
+                status = 'Inativo';
+                badge = 'badge-warning';
+                hint = 'As credenciais desta unidade estão cadastradas, mas inativas.';
+            } else if (payload.network_configured) {
+                status = 'Usa a rede';
+                badge = 'badge-info';
+                hint = 'Esta unidade não tem credenciais próprias e usará as credenciais da rede.';
+            }
+
+            mercadoPagoStatus.textContent = status;
+            mercadoPagoStatus.className = 'badge ' + badge;
+            mercadoPagoHint.textContent = hint;
+        }
 
         function filterRegionsByNetwork() {
             const networkId = networkSelect.value;
@@ -283,6 +398,7 @@
             errorBox.textContent = '';
             currentUnitId = unitId;
             filterRegionsByNetwork();
+            setMercadoPagoState(null);
 
             if (unitId) {
                 title.textContent = 'Editar unidade';
@@ -315,6 +431,7 @@
 
                         filterRegionsByNetwork();
                         fields.region_id.value = data.region_id ?? '';
+                        setMercadoPagoState(data.mercado_pago);
                     })
                     .catch(function (error) {
                         alertError('Erro', error.message);
@@ -384,27 +501,6 @@
                 .finally(function () {
                     submitBtn.disabled = false;
                 });
-        });
-
-        // Masks
-        function applyMask(input, formatter) {
-            input.addEventListener('input', function () {
-                input.value = formatter(input.value.replace(/\D/g, ''));
-            });
-        }
-
-        applyMask(document.getElementById('unit_phone'), function (digits) {
-            digits = digits.slice(0, 11);
-
-            if (digits.length <= 10) {
-                return digits
-                    .replace(/(\d{2})(\d)/, '($1) $2')
-                    .replace(/(\d{4})(\d)/, '$1-$2');
-            }
-
-            return digits
-                .replace(/(\d{2})(\d)/, '($1) $2')
-                .replace(/(\d{5})(\d)/, '$1-$2');
         });
 
         modal.addEventListener('click', function (event) {

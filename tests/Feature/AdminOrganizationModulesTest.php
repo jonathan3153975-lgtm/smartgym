@@ -51,7 +51,6 @@ class AdminOrganizationModulesTest extends TestCase
             '<span>Pessoas</span>',
             '<span>Perfis</span>',
             '<span>Usuários</span>',
-            '<span>Modalidades</span>',
             '<span>Planos SaaS</span>',
         ];
 
@@ -64,6 +63,40 @@ class AdminOrganizationModulesTest extends TestCase
             $this->assertGreaterThan($previousPosition, $position, "Item {$item} está fora de ordem.");
             $previousPosition = $position;
         }
+    }
+
+    /** @test */
+    public function test_network_cadastros_submenu_follows_the_required_order(): void
+    {
+        $networkAdmin = User::where('email', 'admin@smartgym.com.br')->firstOrFail();
+        $this->actingAs($networkAdmin);
+
+        $html = $this->get(route('admin.dashboard'))->assertOk()->getContent();
+
+        $expectedOrder = [
+            '<span>Regiões</span>',
+            '<span>Unidades</span>',
+            '<span>Pessoas</span>',
+            '<span>Perfis</span>',
+            '<span>Usuários</span>',
+            '<span>Modalidades</span>',
+            '<span>Planos</span>',
+            '<span>Turmas</span>',
+            '<span>Alunos</span>',
+        ];
+
+        $previousPosition = -1;
+
+        foreach ($expectedOrder as $item) {
+            $position = mb_strpos($html, $item);
+
+            $this->assertNotFalse($position, "Item {$item} não encontrado no menu.");
+            $this->assertGreaterThan($previousPosition, $position, "Item {$item} está fora de ordem.");
+            $previousPosition = $position;
+        }
+
+        $this->assertStringNotContainsString('<span>Redes</span>', $html);
+        $this->assertStringNotContainsString('<span>Planos SaaS</span>', $html);
     }
 
     /** @test */
@@ -135,20 +168,30 @@ class AdminOrganizationModulesTest extends TestCase
             'network_id' => $network->id,
             'region_id' => $region->id,
             'name' => 'Unidade Centro',
-            'identifier' => 'UNID-CENTRO',
             'city' => 'Curitiba',
             'state' => 'pr',
+            'latitude' => -25.4284,
+            'longitude' => -49.2733,
         ])->assertOk()->assertJsonPath('success', true);
 
-        $unit = Unit::where('identifier', 'UNID-CENTRO')->firstOrFail();
+        $unit = Unit::where('name', 'Unidade Centro')->firstOrFail();
+        $this->assertMatchesRegularExpression('/^UNID\d{3,}$/', $unit->identifier);
         $this->assertSame('active', $unit->status);
         $this->assertSame('PR', $unit->state);
+        $this->assertEqualsWithDelta(-25.4284, $unit->latitude, 0.0000001);
+        $this->assertEqualsWithDelta(-49.2733, $unit->longitude, 0.0000001);
+
+        $this->postJson(route('admin.units.store'), [
+            'network_id' => $network->id,
+            'name' => 'Unidade Coordenada Inválida',
+            'latitude' => 100,
+            'longitude' => 200,
+        ])->assertStatus(422)->assertJsonValidationErrors(['latitude', 'longitude']);
 
         $this->putJson(route('admin.units.update', $unit), [
             'network_id' => $network->id,
             'region_id' => $region->id,
             'name' => 'Unidade Centro Novo',
-            'identifier' => 'UNID-CENTRO',
             'status' => 'maintenance',
         ])->assertOk()->assertJsonPath('success', true);
 
