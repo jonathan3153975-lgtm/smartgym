@@ -2,9 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Models\ClassBooking;
+use App\Models\ClassSchedule;
 use App\Models\Network;
 use App\Models\Region;
+use App\Models\SchoolClass;
 use App\Models\Student;
+use App\Models\StudentCharge;
+use App\Models\StudentCheckin;
+use App\Models\StudentSale;
+use App\Models\StudentSaleItem;
+use App\Models\StudentSubscription;
 use App\Models\Unit;
 use App\Models\User;
 use App\Support\NetworkPolicy;
@@ -42,6 +50,115 @@ class StudentModuleTest extends TestCase
         $this->region = Region::where('network_id', $this->network->id)->firstOrFail();
         $this->unit = Unit::where('identifier', 'UNID001')->firstOrFail();
         $this->otherUnit = Unit::where('identifier', 'UNID002')->firstOrFail();
+    }
+
+    /** @test */
+    public function test_student_screen_summarizes_active_plans_and_same_day_accesses(): void
+    {
+        $this->actingAs($this->networkAdmin);
+
+        $student = Student::create([
+            'network_id' => $this->network->id,
+            'name' => 'Aluno Acesso',
+            'email' => 'acesso@exemplo.com',
+            'status' => 'active',
+        ]);
+
+        $student->units()->create([
+            'network_id' => $this->network->id,
+            'unit_id' => $this->unit->id,
+            'status' => 'active',
+            'is_primary' => true,
+            'starts_at' => now()->toDateString(),
+        ]);
+
+        $sale = StudentSale::create([
+            'network_id' => $this->network->id,
+            'unit_id' => $this->unit->id,
+            'student_id' => $student->id,
+            'status' => StudentSale::STATUS_PAID,
+            'launched_at' => now()->toDateString(),
+            'total' => 45,
+        ]);
+
+        StudentSaleItem::create([
+            'student_sale_id' => $sale->id,
+            'type' => StudentSaleItem::TYPE_DAY_PASS,
+            'unit_id' => $this->unit->id,
+            'description' => 'Diária de hoje',
+            'amount' => 45,
+            'launched_at' => now()->toDateString(),
+            'starts_at' => now()->toDateString(),
+            'ends_at' => now()->toDateString(),
+            'status' => StudentCharge::STATUS_PAID,
+        ]);
+
+        StudentCheckin::create([
+            'network_id' => $this->network->id,
+            'unit_id' => $this->unit->id,
+            'student_id' => $student->id,
+            'type' => StudentCheckin::TYPE_TRIAL,
+            'checked_in_at' => now(),
+        ]);
+
+        $class = SchoolClass::create([
+            'network_id' => $this->network->id,
+            'unit_id' => $this->unit->id,
+            'name' => 'Funcional Teste',
+            'status' => 'active',
+        ]);
+
+        $schedule = ClassSchedule::create([
+            'class_id' => $class->id,
+            'weekday' => now()->dayOfWeek,
+            'start_time' => '18:00',
+            'end_time' => '19:00',
+            'vacancies' => 10,
+        ]);
+
+        ClassBooking::create([
+            'network_id' => $this->network->id,
+            'unit_id' => $this->unit->id,
+            'student_id' => $student->id,
+            'class_id' => $class->id,
+            'class_schedule_id' => $schedule->id,
+            'status' => ClassBooking::STATUS_CONFIRMED,
+            'type' => ClassBooking::TYPE_SINGLE,
+            'booked_for' => now()->toDateString(),
+            'amount' => 30,
+        ]);
+
+        $this->get(route('students.show', $student))
+            ->assertOk()
+            ->assertSee('Sem plano ativo no momento.')
+            ->assertSee('Diária adquirida hoje')
+            ->assertSee('Aula agendada hoje: Funcional Teste 18:00')
+            ->assertSee('Check-in experimental hoje');
+
+        $this->get(route('students.index'))
+            ->assertOk()
+            ->assertSee('Diária hoje')
+            ->assertSee('Aula hoje: Funcional Teste 18:00')
+            ->assertSee('Experimental hoje');
+
+        StudentSubscription::create([
+            'network_id' => $this->network->id,
+            'unit_id' => $this->unit->id,
+            'student_id' => $student->id,
+            'status' => StudentSubscription::STATUS_ACTIVE,
+            'plan_name' => 'Plano Premium',
+            'price' => 199.90,
+            'period' => 'monthly',
+            'duration_days' => 30,
+            'starts_at' => now(),
+            'ends_at' => now()->addDays(30),
+            'paid_at' => now(),
+        ]);
+
+        $this->get(route('students.show', $student))
+            ->assertOk()
+            ->assertSee('Plano ativo')
+            ->assertSee('Plano Premium');
     }
 
     /** @test */
@@ -84,7 +201,7 @@ class StudentModuleTest extends TestCase
             ->assertOk()
             ->assertSee('Maria Aluna');
 
-        $this->get(route('students.show', $student))
+        $this->get(route('students.show', ['student' => $student, 'tab' => 'cadastro']))
             ->assertOk()
             ->assertSee('Unidades vinculadas')
             ->assertSee('Principal');

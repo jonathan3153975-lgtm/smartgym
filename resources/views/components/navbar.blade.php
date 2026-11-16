@@ -19,11 +19,8 @@
          Desktop: max-w-2xl centered | Mobile: full width between buttons
          ============================================ --}}
     <div class="flex-1 min-w-0 lg:max-w-2xl lg:mx-auto px-4">
-        @isset($pageTitle)
-            <h1 class="text-lg font-semibold truncate">{{ $pageTitle }}</h1>
-        @else
-            {{-- Global Search --}}
-            <div class="relative w-full">
+        {{-- Global Search --}}
+        <div class="relative w-full">
                 <button
                     type="button"
                     id="globalSearchBtn"
@@ -61,7 +58,6 @@
                     </div>
                 </div>
             </div>
-        @endisset
     </div>
 
     {{-- ============================================
@@ -289,6 +285,90 @@
                 e.preventDefault();
                 globalSearchBtn?.click();
             }
+        });
+
+        // Live results for the global search
+        const globalSearchResults = document.getElementById('globalSearchResults');
+        const globalSearchUrl = @json(route('global.search'));
+        let globalSearchTimer = null;
+        let globalSearchRequest = null;
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, function(char) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char];
+            });
+        }
+
+        function renderSearchResults(html) {
+            if (globalSearchResults) {
+                globalSearchResults.innerHTML = html;
+            }
+        }
+
+        globalSearchInput?.addEventListener('input', function() {
+            const query = this.value.trim();
+
+            clearTimeout(globalSearchTimer);
+            globalSearchRequest?.abort();
+
+            if (query.length < 2) {
+                renderSearchResults('<div class="p-4 text-center text-text-secondary"><i class="fas fa-search mb-2 block text-2xl"></i>Digite ao menos 2 caracteres...</div>');
+                return;
+            }
+
+            globalSearchTimer = setTimeout(function() {
+                globalSearchRequest = new AbortController();
+
+                renderSearchResults('<div class="p-4 text-center text-text-secondary"><i class="fas fa-spinner fa-spin mr-2"></i>Buscando...</div>');
+
+                fetch(globalSearchUrl + '?q=' + encodeURIComponent(query), {
+                    headers: { 'Accept': 'application/json' },
+                    signal: globalSearchRequest.signal,
+                })
+                    .then(function(response) {
+                        return response.ok ? response.json() : Promise.reject(new Error('search_failed'));
+                    })
+                    .then(function(data) {
+                        const results = data.results || [];
+
+                        if (results.length === 0) {
+                            renderSearchResults('<div class="p-4 text-center text-text-secondary">Nenhum resultado encontrado.</div>');
+                            return;
+                        }
+
+                        let html = '<ul class="divide-y divide-custom">';
+
+                        results.forEach(function(result) {
+                            const icon = String(result.icon || 'fa-circle').replace(/[^a-z0-9-]/gi, '');
+                            let actions = '';
+
+                            (result.actions || []).forEach(function(action) {
+                                actions += '<a href="' + escapeHtml(action.url) + '" class="text-xs font-semibold text-cyan hover:underline">'
+                                    + escapeHtml(action.label) + '</a>';
+                            });
+
+                            html += '<li class="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-surface">'
+                                + '<a href="' + escapeHtml(result.url) + '" class="flex min-w-0 flex-1 items-center gap-3">'
+                                + '<span class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-surface text-cyan"><i class="fas ' + icon + '"></i></span>'
+                                + '<span class="min-w-0">'
+                                + '<span class="block truncate text-sm font-medium">' + escapeHtml(result.label) + '</span>'
+                                + '<span class="block truncate text-xs text-text-secondary">' + escapeHtml(result.subtitle) + '</span>'
+                                + '</span>'
+                                + '</a>'
+                                + (actions ? '<span class="flex flex-shrink-0 items-center gap-3">' + actions + '</span>' : '')
+                                + '</li>';
+                        });
+
+                        renderSearchResults(html + '</ul>');
+                    })
+                    .catch(function(error) {
+                        if (error && error.name === 'AbortError') {
+                            return;
+                        }
+
+                        renderSearchResults('<div class="p-4 text-center text-text-secondary">Não foi possível buscar agora.</div>');
+                    });
+            }, 250);
         });
 
         // ============================================

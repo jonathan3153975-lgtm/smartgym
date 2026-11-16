@@ -3,16 +3,25 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Modality;
+use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\StudentAccount;
+use App\Models\StudentAssessment;
+use App\Models\StudentSubscription;
 use App\Models\StudentUnit;
+use App\Support\AssessmentMetrics;
 use App\Support\BrazilianDocument;
 use App\Support\NetworkPolicy;
+use App\Support\StudentAccessSummary;
+use App\Support\StudentAssessmentForm;
+use App\Support\StudentBodySummary;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -52,24 +61,156 @@ class StudentController extends Controller
 
         $students = $query->paginate(15)->withQueryString();
         $units = $tenant->unitsQuery()->get(['id', 'name']);
+        $accessSummaries = StudentAccessSummary::forMany($students->getCollection());
 
         if ($request->ajax()) {
-            return response()->view('pages.students._table', compact('students'));
+            return response()->view('pages.students._table', compact('students', 'accessSummaries'));
         }
 
-        return view('pages.students.index', compact('students', 'units'));
+        return view('pages.students.index', compact('students', 'units', 'accessSummaries'));
     }
 
     public function show(Student $student): View
     {
         abort_unless($this->tenant()->canAccessStudent($student), 404);
 
-        $student->load(['units.unit.region', 'account', 'assessment', 'createdBy', 'updatedBy']);
+        $student->load([
+            'units.unit.region',
+            'account',
+            'assessment',
+            'assessments',
+            'createdBy',
+            'updatedBy',
+        ]);
         $student->loadCount('assessments');
 
         $latestMeasurement = $student->measurements()->first();
+        $access = StudentAccessSummary::for($student);
 
-        return view('pages.students.show', compact('student', 'latestMeasurement'));
+        $activeSubscriptions = $student->activeSubscriptions()
+            ->with(['membershipPlan.units', 'membershipPlan.modalities', 'unit:id,name'])
+            ->orderByDesc('starts_at')
+            ->get();
+
+        $plans = $activeSubscriptions
+            ->map(fn (StudentSubscription $subscription) => $this->planDetails($subscription))
+            ->values()
+            ->all();
+
+        $previousAssessment = $student->assessments->skip(1)->first();
+        $assessmentMetrics = AssessmentMetrics::for($student->assessment, $previousAssessment);
+
+        return view('pages.students.show', compact(
+            'student',
+            'latestMeasurement',
+            'access',
+            'plans',
+            'previousAssessment',
+            'assessmentMetrics'
+        ));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function planDetails(StudentSubscription $subscription): array
+    {
+        $plan = $subscription->membershipPlan;
+        $includesClasses = $plan?->includesClasses() ?? $subscription->includesClasses();
+        $allUnits = (bool) ($plan?->all_units);
+
+        $unitIds = collect();
+        $unitNames = [];
+
+        if ($allUnits) {
+            $unitNames = ['Todas'];
+        } else {
+            $units = $plan?->units ?? collect();
+            $unitIds = $units->pluck('id');
+            $unitNames = $units->pluck('name')->filter()->values()->all();
+
+            if ($unitIds->isEmpty() && $subscription->unit) {
+                $unitIds = collect([$subscription->unit->id]);
+                $unitNames = [$subscription->unit->name];
+            }
+        }
+
+        $allModalities = (bool) ($plan?->all_modalities);
+        $isBasic = $plan?->isBasic() ?? $subscription->plan_type === 'basic';
+        $modalityIds = collect();
+        $modalityNames = [];
+
+        if ($isBasic) {
+            $modalityNames = ['Acesso à academia'];
+        } elseif ($allModalities) {
+            $modalityNames = ['Todas'];
+        } else {
+            $modalities = $plan?->modalities ?? collect();
+            $modalityIds = $modalities->pluck('id');
+            $modalityNames = $modalities->pluck('name')->filter()->values()->all();
+
+            if ($modalityIds->isEmpty()) {
+                $modalityIds = collect($subscription->modality_ids ?? [])->map(fn ($id) => (int) $id);
+
+                if ($modalityIds->isNotEmpty()) {
+                    $modalityNames = Modality::query()
+                        ->whereIn('id', $modalityIds)
+                        ->orderBy('name')
+                        ->pluck('name')
+                        ->all();
+                }
+            }
+        }
+
+        $classes = collect();
+
+        if ($includesClasses) {
+            $classesQuery = SchoolClass::query()
+                ->where('network_id', $subscription->network_id)
+                ->where('status', 'active')
+                ->with(['schedules', 'unit:id,name', 'modality:id,name'])
+                ->orderBy('name');
+
+            if (! $allUnits && $unitIds->isNotEmpty()) {
+                $classesQuery->whereIn('unit_id', $unitIds);
+            }
+
+            if (! $allModalities && ! $isBasic && $modalityIds->isNotEmpty()) {
+                $classesQuery->whereIn('modality_id', $modalityIds);
+            }
+
+            $classes = $classesQuery
+                ->limit(60)
+                ->get()
+                ->map(fn (SchoolClass $class) => [
+                    'name' => $class->name,
+                    'unit' => $class->unit?->name,
+                    'modality' => $class->modality?->name,
+                    'schedules' => $class->schedules
+                        ->map(fn ($schedule) => $schedule->label)
+                        ->filter()
+                        ->values()
+                        ->all(),
+                ]);
+        }
+
+        return [
+            'id' => $subscription->id,
+            'name' => $subscription->plan_name ?: ($plan?->name ?? 'Plano'),
+            'status' => $subscription->status_label,
+            'period' => $plan?->period_label ?? $subscription->period_label,
+            'type' => $plan?->type_label ?? $subscription->plan_type_label,
+            'price' => $subscription->price_label,
+            'starts_at' => $subscription->starts_at?->format('d/m/Y'),
+            'ends_at' => $subscription->ends_at?->format('d/m/Y'),
+            'weekly_accesses' => $subscription->weekly_accesses,
+            'daily_checkins' => $subscription->daily_checkins,
+            'checkin_advance_minutes' => $subscription->checkin_advance_minutes,
+            'units' => $unitNames,
+            'modalities' => $modalityNames,
+            'includes_classes' => $includesClasses,
+            'classes' => $classes->all(),
+        ];
     }
 
     public function assessment(Student $student): View
@@ -78,16 +219,53 @@ class StudentController extends Controller
 
         $student->load(['assessment', 'assessments', 'units.unit']);
 
-        return view('pages.students.assessment', compact('student'));
+        $bodySummary = StudentBodySummary::for($student);
+
+        return view('pages.students.assessment', compact('student', 'bodySummary'));
     }
 
-    public function measurements(Student $student): View
+    public function createAssessment(Request $request, Student $student): View
     {
         abort_unless($this->tenant()->canAccessStudent($student), 404);
+        abort_unless($request->user()?->canCreateAssessments(), 403);
 
-        $student->load(['assessment', 'measurements']);
+        $student->load(['assessment', 'units.unit']);
 
-        return view('pages.students.measurements', compact('student'));
+        return view('pages.students.assessment-form', [
+            'student' => $student,
+            'assessment' => $student->assessment,
+        ]);
+    }
+
+    public function storeAssessment(Request $request, Student $student): RedirectResponse
+    {
+        $tenant = $this->tenant();
+
+        abort_unless($tenant->canAccessStudent($student), 404);
+        abort_unless($request->user()?->canCreateAssessments(), 403);
+
+        StudentAssessmentForm::normalizeDecimals($request);
+
+        $validated = $request->validate(StudentAssessmentForm::rules());
+
+        $parqAnswers = StudentAssessmentForm::parqAnswers($validated['parq_answers']);
+
+        $payload = Arr::except($validated, ['parq_answers', 'smoker', 'consent']);
+
+        StudentAssessment::create(array_merge($payload, [
+            'network_id' => $tenant->networkId(),
+            'student_id' => $student->id,
+            'status' => StudentAssessment::STATUS_COMPLETED,
+            'smoker' => filter_var($validated['smoker'] ?? false, FILTER_VALIDATE_BOOL),
+            'parq_answers' => $parqAnswers,
+            'parq_positive' => in_array(true, $parqAnswers, true),
+            'consent' => true,
+            'submitted_at' => now(),
+        ]));
+
+        return redirect()
+            ->route('students.assessment', $student)
+            ->with('success', 'Nova avaliação registrada para o aluno.');
     }
 
     public function editData(Student $student): JsonResponse

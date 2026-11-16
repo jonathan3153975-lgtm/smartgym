@@ -6,12 +6,12 @@ use App\Models\Network;
 use App\Models\Student;
 use App\Models\StudentAccount;
 use App\Models\StudentAssessment;
+use App\Support\AssessmentMetrics;
+use App\Support\StudentAssessmentForm;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class StudentAssessmentController extends Controller
@@ -111,35 +111,11 @@ class StudentAssessmentController extends Controller
 
         abort_unless($student instanceof Student, 403);
 
-        $validated = $request->validate([
-            'goal' => ['required', Rule::in(array_keys(StudentAssessment::GOALS))],
-            'goal_notes' => ['nullable', 'string', 'max:2000'],
-            'experience_level' => ['required', Rule::in(array_keys(StudentAssessment::EXPERIENCE_LEVELS))],
-            'training_frequency' => ['required', 'integer', 'between:1,7'],
-            'medical_conditions' => ['nullable', 'string', 'max:2000'],
-            'medications' => ['nullable', 'string', 'max:2000'],
-            'injuries' => ['nullable', 'string', 'max:2000'],
-            'surgeries' => ['nullable', 'string', 'max:2000'],
-            'smoker' => ['nullable', 'boolean'],
-            'alcohol_consumption' => ['nullable', Rule::in(array_keys(StudentAssessment::ALCOHOL_CONSUMPTION))],
-            'sleep_hours' => ['nullable', 'integer', 'between:1,16'],
-            'stress_level' => ['nullable', 'integer', 'between:1,5'],
-            'parq_answers' => ['required', 'array'],
-            'emergency_contact_name' => ['required', 'string', 'max:255'],
-            'emergency_contact_phone' => ['required', 'string', 'max:20'],
-            'weight_kg' => ['nullable', 'numeric', 'between:20,400'],
-            'height_cm' => ['nullable', 'numeric', 'between:80,250'],
-            'body_fat_percent' => ['nullable', 'numeric', 'between:1,70'],
-            'waist_cm' => ['nullable', 'numeric', 'between:20,250'],
-            'hip_cm' => ['nullable', 'numeric', 'between:20,250'],
-            'chest_cm' => ['nullable', 'numeric', 'between:20,250'],
-            'arm_cm' => ['nullable', 'numeric', 'between:10,100'],
-            'thigh_cm' => ['nullable', 'numeric', 'between:20,150'],
-            'observations' => ['nullable', 'string', 'max:4000'],
-            'consent' => ['accepted'],
-        ]);
+        StudentAssessmentForm::normalizeDecimals($request);
 
-        $parqAnswers = $this->parqAnswers($validated['parq_answers']);
+        $validated = $request->validate(StudentAssessmentForm::rules());
+
+        $parqAnswers = StudentAssessmentForm::parqAnswers($validated['parq_answers']);
 
         $payload = Arr::except($validated, ['parq_answers', 'smoker', 'consent']);
 
@@ -157,32 +133,6 @@ class StudentAssessmentController extends Controller
         return redirect()
             ->route('student.portal.assessment.show', $network)
             ->with('success', 'Ficha de avaliação enviada com sucesso!');
-    }
-
-    /**
-     * @param  array<string, mixed>  $answers
-     * @return array<string, bool>
-     */
-    private function parqAnswers(array $answers): array
-    {
-        $normalized = [];
-        $missing = false;
-
-        foreach (array_keys(StudentAssessment::PARQ_QUESTIONS) as $key) {
-            if (! array_key_exists($key, $answers)) {
-                $missing = true;
-            }
-
-            $normalized[$key] = filter_var($answers[$key] ?? false, FILTER_VALIDATE_BOOL);
-        }
-
-        if ($missing) {
-            throw ValidationException::withMessages([
-                'parq_answers' => 'Responda todas as perguntas do questionário de saúde.',
-            ]);
-        }
-
-        return $normalized;
     }
 
     private function formView(
@@ -219,6 +169,7 @@ class StudentAssessmentController extends Controller
             'assessment' => $assessment,
             'previous' => $previous,
             'comparison' => $this->comparison($assessment, $previous),
+            'metrics' => AssessmentMetrics::for($assessment, $previous),
             'totalAssessments' => $student->assessments()->count(),
         ]);
     }

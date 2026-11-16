@@ -87,6 +87,18 @@ class Student extends Model
         return $this->hasMany(StudentSubscription::class);
     }
 
+    public function activeSubscriptions(): HasMany
+    {
+        return $this->subscriptions()->active();
+    }
+
+    public function activeSubscriptionForModality(?int $modalityId): ?StudentSubscription
+    {
+        return $this->activeSubscriptions()
+            ->get()
+            ->first(fn (StudentSubscription $subscription) => $subscription->includesModality($modalityId));
+    }
+
     public function assessments(): HasMany
     {
         return $this->hasMany(StudentAssessment::class)
@@ -122,6 +134,21 @@ class Student extends Model
     public function classBookings(): HasMany
     {
         return $this->hasMany(ClassBooking::class)->orderByDesc('booked_for');
+    }
+
+    public function charges(): HasMany
+    {
+        return $this->hasMany(StudentCharge::class)->orderByDesc('created_at');
+    }
+
+    public function sales(): HasMany
+    {
+        return $this->hasMany(StudentSale::class)->orderByDesc('created_at');
+    }
+
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(StudentNotification::class)->orderByDesc('created_at');
     }
 
     public function activeSubscription(): ?StudentSubscription

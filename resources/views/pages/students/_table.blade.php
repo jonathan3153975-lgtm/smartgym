@@ -53,6 +53,7 @@
                             @else
                                 <span class="badge badge-secondary">Inativo</span>
                             @endif
+                            @include('pages.students._access', ['access' => ($accessSummaries ?? [])[$student->id] ?? null])
                         </td>
                         <td class="text-right">
                             <div class="flex items-center justify-end gap-1">
@@ -60,6 +61,11 @@
                                    class="p-2 rounded-lg hover:bg-surface-elevated transition-colors text-text-secondary"
                                    title="Visualizar">
                                     <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{{ route('students.contracts', $student) }}"
+                                   class="p-2 rounded-lg hover:bg-surface-elevated transition-colors text-text-secondary"
+                                   title="Contratos">
+                                    <i class="fas fa-file-signature"></i>
                                 </a>
                                 @can('students.edit')
                                     <button type="button"
@@ -121,6 +127,8 @@
                     @endif
                 </div>
 
+                @include('pages.students._access', ['access' => ($accessSummaries ?? [])[$student->id] ?? null])
+
                 <div class="mt-3 space-y-1 text-sm text-text-secondary">
                     <p><i class="fas fa-building w-4 text-center mr-1"></i>{{ $primary?->unit?->name ?? 'Sem unidade' }}</p>
                     @if ($student->email)
@@ -133,6 +141,11 @@
                        class="p-2 rounded-lg hover:bg-surface transition-colors text-text-secondary"
                        title="Visualizar">
                         <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="{{ route('students.contracts', $student) }}"
+                       class="p-2 rounded-lg hover:bg-surface transition-colors text-text-secondary"
+                       title="Contratos">
+                        <i class="fas fa-file-signature"></i>
                     </a>
                     @can('students.edit')
                         <button type="button"

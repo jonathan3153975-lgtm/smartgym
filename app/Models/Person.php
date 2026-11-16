@@ -14,11 +14,38 @@ class Person extends Model
     /** @use HasFactory<PersonFactory> */
     use HasFactory, SoftDeletes;
 
+    public const FUNCTION_STUDENT = 'student';
+
+    public const FUNCTION_PERSONAL_TRAINER = 'personal_trainer';
+
+    public const FUNCTION_ADMINISTRATION = 'administration';
+
+    public const FUNCTION_INSTRUCTOR = 'instructor';
+
+    public const FUNCTION_LABELS = [
+        self::FUNCTION_STUDENT => 'Aluno',
+        self::FUNCTION_PERSONAL_TRAINER => 'Personal-trainer',
+        self::FUNCTION_ADMINISTRATION => 'Administração',
+        self::FUNCTION_INSTRUCTOR => 'Professor/Instrutor/Treinador',
+    ];
+
+    public const CLIENT_FUNCTIONS = [
+        self::FUNCTION_STUDENT,
+        self::FUNCTION_PERSONAL_TRAINER,
+    ];
+
+    public const STAFF_FUNCTIONS = [
+        self::FUNCTION_ADMINISTRATION,
+        self::FUNCTION_INSTRUCTOR,
+        self::FUNCTION_PERSONAL_TRAINER,
+    ];
+
     protected $fillable = [
         'network_id',
         'unit_id',
         'person_type',
         'category',
+        'job_function',
         'name',
         'trade_name',
         'document',
@@ -106,6 +133,24 @@ class Person extends Model
     public function getCategoryLabelAttribute(): string
     {
         return $this->category === 'staff' ? 'Equipe' : 'Cliente';
+    }
+
+    public function getJobFunctionLabelAttribute(): string
+    {
+        return self::FUNCTION_LABELS[$this->job_function] ?? '—';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function functionsForCategory(string $category): array
+    {
+        return $category === 'staff' ? self::STAFF_FUNCTIONS : self::CLIENT_FUNCTIONS;
+    }
+
+    public function isTeacher(): bool
+    {
+        return in_array($this->job_function, [self::FUNCTION_INSTRUCTOR, self::FUNCTION_PERSONAL_TRAINER], true);
     }
 
     public function getDocumentLabelAttribute(): string

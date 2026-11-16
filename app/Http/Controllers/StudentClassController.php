@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\ClassBooking;
+use App\Models\ClassSchedule;
 use App\Models\Network;
-use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\StudentAccount;
 use App\Models\StudentCheckin;
@@ -35,53 +35,64 @@ class StudentClassController extends Controller
             $weekday = now()->dayOfWeek;
         }
 
-        $classes = SchoolClass::query()
-            ->with(['unit:id,name,street,number,neighborhood,city,state', 'modality:id,name', 'teacher:id,name'])
-            ->where('network_id', $network->id)
+        $schedules = ClassSchedule::query()
+            ->with([
+                'schoolClass.unit:id,name,street,number,neighborhood,city,state',
+                'schoolClass.modality:id,name',
+                'person:id,name',
+                'teacher:id,name',
+            ])
             ->where('weekday', $weekday)
-            ->where('status', 'active')
-            ->whereHas('unit', fn ($query) => $query->where('status', 'active'))
+            ->whereHas('schoolClass', fn ($query) => $query
+                ->where('network_id', $network->id)
+                ->where('status', 'active')
+                ->whereHas('unit', fn ($unitQuery) => $unitQuery->where('status', 'active')))
             ->orderBy('start_time')
             ->get();
 
-        $nextDates = $classes->mapWithKeys(fn (SchoolClass $class) => [
-            $class->id => $this->nextDateForWeekday($class->weekday),
+        $nextDates = $schedules->mapWithKeys(fn (ClassSchedule $schedule) => [
+            $schedule->id => $this->nextDateForWeekday($schedule->weekday),
         ]);
 
         $bookings = $student->classBookings()
             ->whereIn('status', [ClassBooking::STATUS_PENDING, ClassBooking::STATUS_CONFIRMED])
             ->whereDate('booked_for', '>=', now()->toDateString())
             ->get()
-            ->keyBy(fn (ClassBooking $booking) => $booking->class_id.'-'.$booking->booked_for->format('Y-m-d'));
+            ->keyBy(fn (ClassBooking $booking) => ($booking->class_schedule_id ?? 'class-'.$booking->class_id).'-'.$booking->booked_for->format('Y-m-d'));
 
         $activeSubscription = $student->activeSubscription();
+        $activeSubscriptions = $student->activeSubscriptions()->get();
         $trialUsed = $this->trialUsed($student);
 
         return view('pages.student-portal.classes.index', compact(
             'network',
             'account',
             'student',
-            'classes',
+            'schedules',
             'nextDates',
             'bookings',
             'activeSubscription',
+            'activeSubscriptions',
             'trialUsed',
             'weekday'
         ));
     }
 
-    public function checkout(Network $network, SchoolClass $schoolClass): RedirectResponse
+    public function checkout(Network $network, ClassSchedule $classSchedule): RedirectResponse
     {
         $account = $this->account($network);
 
-        abort_unless((int) $schoolClass->network_id === (int) $network->id, 404);
+        abort_unless(
+            (int) $classSchedule->schoolClass?->network_id === (int) $network->id,
+            404
+        );
 
         try {
-            $initPoint = $this->checkout->start($account, $schoolClass);
+            $initPoint = $this->checkout->start($account, $classSchedule);
         } catch (MercadoPagoException $exception) {
             Log::warning('Falha ao iniciar o pagamento de aula avulsa.', [
                 'student_id' => $account->student_id,
-                'class_id' => $schoolClass->id,
+                'class_schedule_id' => $classSchedule->id,
                 'error' => $exception->getMessage(),
             ]);
 
@@ -93,24 +104,36 @@ class StudentClassController extends Controller
         return redirect()->away($initPoint);
     }
 
-    public function reserve(Network $network, SchoolClass $schoolClass): RedirectResponse
+    public function reserve(Network $network, ClassSchedule $classSchedule): RedirectResponse
     {
         $account = $this->account($network);
         $student = $account->student;
 
         abort_unless($student instanceof Student, 403);
-        abort_unless((int) $schoolClass->network_id === (int) $network->id && $schoolClass->isActive(), 404);
+
+        $class = $classSchedule->schoolClass;
+
+        abort_unless($class && (int) $class->network_id === (int) $network->id && $class->isActive(), 404);
+
+        $bookingSubscription = $student->activeSubscriptionForModality($class->modality_id);
+
         abort_unless($student->activeSubscription(), 403, 'Você precisa de um plano ativo para reservar esta aula.');
 
-        $bookedFor = $this->nextDateForWeekday($schoolClass->weekday);
+        if (! $bookingSubscription) {
+            return redirect()
+                ->route('student.portal.classes.index', $network)
+                ->withErrors(['class' => 'Esta modalidade não está incluída no seu plano.']);
+        }
+
+        $bookedFor = $this->nextDateForWeekday($classSchedule->weekday);
 
         $occupied = ClassBooking::query()
-            ->where('class_id', $schoolClass->id)
+            ->where('class_schedule_id', $classSchedule->id)
             ->whereDate('booked_for', $bookedFor->toDateString())
             ->whereIn('status', [ClassBooking::STATUS_PENDING, ClassBooking::STATUS_CONFIRMED])
             ->count();
 
-        if ($occupied >= $schoolClass->vacancies) {
+        if ($occupied >= $classSchedule->vacancies) {
             return redirect()
                 ->route('student.portal.classes.index', $network)
                 ->withErrors(['class' => 'Esta aula está sem vagas para a data selecionada.']);
@@ -118,7 +141,7 @@ class StudentClassController extends Controller
 
         $existing = ClassBooking::query()
             ->where('student_id', $student->id)
-            ->where('class_id', $schoolClass->id)
+            ->where('class_schedule_id', $classSchedule->id)
             ->whereDate('booked_for', $bookedFor->toDateString())
             ->first();
 
@@ -128,15 +151,22 @@ class StudentClassController extends Controller
                 ->withErrors(['class' => 'Você já possui uma reserva para esta aula nesta data.']);
         }
 
+        $start = Carbon::parse($bookedFor->toDateString().' '.$classSchedule->start_time);
+        $earlyMinutes = (int) ($bookingSubscription->checkin_advance_minutes ?? 20);
+
         $data = [
             'network_id' => $network->id,
-            'unit_id' => $schoolClass->unit_id,
+            'unit_id' => $class->unit_id,
             'student_id' => $student->id,
-            'class_id' => $schoolClass->id,
+            'class_id' => $class->id,
+            'class_schedule_id' => $classSchedule->id,
             'payment_gateway_setting_id' => null,
             'status' => ClassBooking::STATUS_CONFIRMED,
             'type' => ClassBooking::TYPE_PLAN,
             'booked_for' => $bookedFor->toDateString(),
+            'early_minutes' => $earlyMinutes,
+            'checkin_opens_at' => $start->copy()->subMinutes($earlyMinutes),
+            'checkin_closes_at' => $start->copy()->addMinutes(30),
             'amount' => 0,
             'paid_at' => now(),
         ];

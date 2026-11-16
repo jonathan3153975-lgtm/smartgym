@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Trust the local reverse proxy (cloudflared/Herd) so generated URLs
+        // honor X-Forwarded-Host and X-Forwarded-Proto, avoiding mixed content.
+        $middleware->trustProxies(at: ['127.0.0.1', '::1']);
+
         $middleware->web(append: [
             TenantMiddleware::class,
         ]);

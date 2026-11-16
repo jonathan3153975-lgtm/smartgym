@@ -1,7 +1,7 @@
 @php
     $tenant = \App\Support\TenantContext::current();
     $userNetworkOptions = $tenant->networksQuery()->get(['id', 'name']);
-    $userRoleOptions = $tenant->roleOptionsQuery()->orderBy('level')->orderBy('display_name')->get(['id', 'display_name', 'level']);
+    $userRoleOptions = $tenant->roleOptionsQuery()->orderBy('level')->orderBy('display_name')->get(['id', 'display_name', 'level', 'network_id']);
     $userRegionOptions = $tenant->regionsQuery()->get(['id', 'name', 'network_id']);
     $userUnitOptions = $tenant->unitsQuery()->get(['id', 'name', 'network_id', 'region_id']);
     $userPersonOptions = $tenant->peopleQuery()->get(['id', 'name', 'person_type', 'category', 'document', 'email', 'network_id']);
@@ -30,78 +30,9 @@
             <input type="hidden" name="_method" id="userFormMethod" value="POST">
 
             <section class="space-y-4">
-                <h3 class="text-sm font-semibold uppercase tracking-wider text-text-secondary">Dados do usuário</h3>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="sm:col-span-2">
-                        <label for="user_person_id" class="label-field">Pessoa vinculada <span class="text-red">*</span></label>
-                        <select id="user_person_id" name="person_id" required class="input-field">
-                            <option value="">Selecione uma pessoa cadastrada</option>
-                            @foreach ($userPersonOptions as $personOption)
-                                <option value="{{ $personOption->id }}"
-                                        data-network-id="{{ $personOption->network_id }}"
-                                        data-name="{{ $personOption->name }}"
-                                        data-email="{{ $personOption->email }}">
-                                    {{ $personOption->name }}
-                                    @if ($personOption->document)
-                                        — {{ $personOption->document }}
-                                    @endif
-                                    ({{ $personOption->category_label }} / {{ $personOption->person_type_label }})
-                                </option>
-                            @endforeach
-                        </select>
-                        <p class="mt-1 text-xs text-text-secondary">
-                            Todo usuário deve estar vinculado a uma pessoa registrada.
-                            Cadastre a pessoa no módulo <strong>Pessoas</strong> antes de criar o usuário.
-                        </p>
-                    </div>
-
-                    <div>
-                        <label for="user_name" class="label-field">Nome <span class="text-red">*</span></label>
-                        <input type="text" id="user_name" name="name" required maxlength="255" class="input-field" placeholder="Nome completo">
-                    </div>
-                    <div>
-                        <label for="user_email" class="label-field">E-mail <span class="text-red">*</span></label>
-                        <input type="email" id="user_email" name="email" required maxlength="255" class="input-field" placeholder="usuario@rede.com.br">
-                    </div>
-                    <div>
-                        <label for="user_password" class="label-field">
-                            Senha <span id="userPasswordRequired" class="text-red">*</span>
-                        </label>
-                        <input type="password" id="user_password" name="password" class="input-field" autocomplete="new-password" placeholder="Mínimo de 8 caracteres">
-                        <p id="userPasswordHint" class="hidden text-xs text-text-secondary mt-1">Deixe em branco para manter a senha atual.</p>
-                    </div>
-                    <div>
-                        <label for="user_password_confirmation" class="label-field">Confirmar senha</label>
-                        <input type="password" id="user_password_confirmation" name="password_confirmation" class="input-field" autocomplete="new-password" placeholder="Repita a senha">
-                    </div>
-                </div>
-            </section>
-
-            <section class="space-y-4">
                 <h3 class="text-sm font-semibold uppercase tracking-wider text-text-secondary">Vínculo organizacional</h3>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label for="user_role_id" class="label-field">Perfil <span class="text-red">*</span></label>
-                        <select id="user_role_id" name="role_id" required class="input-field">
-                            <option value="">Selecione um perfil</option>
-                            @foreach ($userRoleOptions as $roleOption)
-                                <option value="{{ $roleOption->id }}">
-                                    [{{ ucfirst($roleOption->level) }}] {{ $roleOption->display_name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div>
-                        <label for="user_vinculo_status" class="label-field">Status do vínculo <span class="text-red">*</span></label>
-                        <select id="user_vinculo_status" name="vinculo_status" required class="input-field">
-                            <option value="active">Ativo</option>
-                            <option value="inactive">Inativo</option>
-                        </select>
-                    </div>
-
                     <div>
                         <label for="user_network_id" class="label-field">Rede</label>
                         <select id="user_network_id" name="network_id" class="input-field">
@@ -140,6 +71,81 @@
                                 </option>
                             @endforeach
                         </select>
+                        <p class="mt-1 text-xs text-text-secondary">
+                            Opcional. Pessoas vinculadas à rede não precisam estar vinculadas a uma unidade.
+                        </p>
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label for="user_person_id" class="label-field">Pessoa vinculada <span class="text-red">*</span></label>
+                        <select id="user_person_id" name="person_id" required class="input-field">
+                            <option value="">Selecione uma pessoa cadastrada</option>
+                            @foreach ($userPersonOptions as $personOption)
+                                <option value="{{ $personOption->id }}"
+                                        data-network-id="{{ $personOption->network_id }}"
+                                        data-name="{{ $personOption->name }}"
+                                        data-email="{{ $personOption->email }}">
+                                    {{ $personOption->name }}
+                                    @if ($personOption->document)
+                                        — {{ $personOption->document }}
+                                    @endif
+                                    ({{ $personOption->category_label }} / {{ $personOption->person_type_label }})
+                                </option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-text-secondary">
+                            Todo usuário deve estar vinculado a uma pessoa registrada.
+                            Cadastre a pessoa no módulo <strong>Pessoas</strong> antes de criar o usuário.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label for="user_role_id" class="label-field">Perfil <span class="text-red">*</span></label>
+                        <select id="user_role_id" name="role_id" required class="input-field">
+                            <option value="">Selecione um perfil</option>
+                            @foreach ($userRoleOptions as $roleOption)
+                                <option value="{{ $roleOption->id }}" data-level="{{ $roleOption->level }}" data-network-id="{{ $roleOption->network_id }}">
+                                    [{{ ucfirst($roleOption->level) }}] {{ $roleOption->display_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-text-secondary">
+                            Os perfis são filtrados conforme rede, região e unidade selecionadas.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label for="user_vinculo_status" class="label-field">Status do vínculo <span class="text-red">*</span></label>
+                        <select id="user_vinculo_status" name="vinculo_status" required class="input-field">
+                            <option value="active">Ativo</option>
+                            <option value="inactive">Inativo</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-text-secondary">Dados do usuário</h3>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="user_name" class="label-field">Nome <span class="text-red">*</span></label>
+                        <input type="text" id="user_name" name="name" required maxlength="255" class="input-field" placeholder="Nome completo">
+                    </div>
+                    <div>
+                        <label for="user_email" class="label-field">E-mail <span class="text-red">*</span></label>
+                        <input type="email" id="user_email" name="email" required maxlength="255" class="input-field" placeholder="usuario@rede.com.br">
+                    </div>
+                    <div>
+                        <label for="user_password" class="label-field">
+                            Senha <span id="userPasswordRequired" class="text-red">*</span>
+                        </label>
+                        <input type="password" id="user_password" name="password" class="input-field" autocomplete="new-password" placeholder="Mínimo de 8 caracteres">
+                        <p id="userPasswordHint" class="hidden text-xs text-text-secondary mt-1">Deixe em branco para manter a senha atual.</p>
+                    </div>
+                    <div>
+                        <label for="user_password_confirmation" class="label-field">Confirmar senha</label>
+                        <input type="password" id="user_password_confirmation" name="password_confirmation" class="input-field" autocomplete="new-password" placeholder="Repita a senha">
                     </div>
                 </div>
             </section>
@@ -171,6 +177,10 @@
         const networkSelect = document.getElementById('user_network_id');
         const regionSelect = document.getElementById('user_region_id');
         const unitSelect = document.getElementById('user_unit_id');
+        const roleSelect = document.getElementById('user_role_id');
+        const roleOptions = roleSelect
+            ? Array.from(roleSelect.querySelectorAll('option[data-level]'))
+            : [];
         const passwordInput = document.getElementById('user_password');
         const passwordRequired = document.getElementById('userPasswordRequired');
         const passwordHint = document.getElementById('userPasswordHint');
@@ -264,17 +274,71 @@
             });
         }
 
+        function scopeLevel() {
+            if (unitSelect.value) {
+                return 'unit';
+            }
+
+            if (regionSelect.value) {
+                return 'region';
+            }
+
+            if (networkSelect.value) {
+                return 'network';
+            }
+
+            return 'platform';
+        }
+
+        function filterRoles(selected = null) {
+            if (!roleSelect) {
+                return;
+            }
+
+            const level = scopeLevel();
+            const networkId = networkSelect.value;
+            const current = selected ?? roleSelect.value;
+
+            roleSelect.innerHTML = '<option value="">Selecione um perfil</option>';
+
+            roleOptions.forEach(function (option) {
+                if (option.dataset.level !== level) {
+                    return;
+                }
+
+                if (option.dataset.networkId && option.dataset.networkId !== networkId) {
+                    return;
+                }
+
+                const clone = option.cloneNode(true);
+                clone.hidden = false;
+                clone.disabled = false;
+                roleSelect.appendChild(clone);
+            });
+
+            const hasCurrent = Array.from(roleSelect.options)
+                .some(function (option) { return option.value === String(current); });
+
+            roleSelect.value = hasCurrent ? String(current) : '';
+        }
+
         networkSelect.addEventListener('change', function () {
             regionSelect.value = '';
             unitSelect.value = '';
             filterRegions();
             filterUnits();
             filterPersons();
+            filterRoles();
         });
 
         regionSelect.addEventListener('change', function () {
             unitSelect.value = '';
             filterUnits();
+            filterRoles();
+        });
+
+        unitSelect.addEventListener('change', function () {
+            filterRoles();
         });
 
         window.openUserModal = function (userId = null) {
@@ -306,8 +370,6 @@
                     .then(function (data) {
                         fields.name.value = data.name ?? '';
                         fields.email.value = data.email ?? '';
-                        fields.role_id.value = data.role_id ?? '';
-                        fields.vinculo_status.value = data.vinculo_status ?? 'active';
                         fields.network_id.value = data.network_id ?? '';
                         filterRegions();
                         filterUnits();
@@ -315,6 +377,9 @@
                         fields.region_id.value = data.region_id ?? '';
                         filterUnits();
                         fields.unit_id.value = data.unit_id ?? '';
+                        filterPersons();
+                        filterRoles(data.role_id);
+                        fields.vinculo_status.value = data.vinculo_status ?? 'active';
                         fields.person_id.value = data.person_id ?? '';
                     })
                     .catch(function (error) {
@@ -330,6 +395,7 @@
                 filterRegions();
                 filterUnits();
                 filterPersons();
+                filterRoles();
             }
 
             modal.classList.remove('hidden');

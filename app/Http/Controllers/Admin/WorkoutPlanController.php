@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Exercise;
+use App\Models\StudentAssessment;
 use App\Models\WorkoutPlan;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -84,6 +85,7 @@ class WorkoutPlanController extends Controller
             'id' => $workoutPlan->id,
             'name' => $workoutPlan->name,
             'objective' => $workoutPlan->objective,
+            'goals' => $workoutPlan->goals ?? [],
             'notes' => $workoutPlan->notes,
             'status' => $workoutPlan->status,
             'visibility' => $workoutPlan->visibility,
@@ -135,6 +137,12 @@ class WorkoutPlanController extends Controller
     public function destroy(WorkoutPlan $workoutPlan): JsonResponse|RedirectResponse
     {
         $this->ensureAccess($workoutPlan);
+
+        abort_if(
+            $workoutPlan->student_id && $workoutPlan->created_by === null,
+            403,
+            'Treinos criados pelo aluno só podem ser excluídos por ele no portal.'
+        );
 
         $workoutPlan->delete();
 
@@ -192,6 +200,8 @@ class WorkoutPlanController extends Controller
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'objective' => ['nullable', 'string', 'max:255'],
+            'goals' => ['nullable', 'array'],
+            'goals.*' => ['string', Rule::in(array_keys(StudentAssessment::GOALS))],
             'notes' => ['nullable', 'string', 'max:2000'],
             'status' => ['required', Rule::in([WorkoutPlan::STATUS_ACTIVE, WorkoutPlan::STATUS_INACTIVE])],
         ]);

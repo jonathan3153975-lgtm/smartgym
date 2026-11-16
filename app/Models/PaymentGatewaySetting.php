@@ -26,6 +26,7 @@ class PaymentGatewaySetting extends Model
 
     protected $fillable = [
         'network_id',
+        'region_id',
         'unit_id',
         'provider',
         'environment',
@@ -59,6 +60,11 @@ class PaymentGatewaySetting extends Model
         return $this->belongsTo(Unit::class);
     }
 
+    public function region(): BelongsTo
+    {
+        return $this->belongsTo(Region::class);
+    }
+
     public function isUsable(): bool
     {
         return $this->is_active && filled($this->access_token);
@@ -71,6 +77,10 @@ class PaymentGatewaySetting extends Model
 
     public function getScopeLabelAttribute(): string
     {
-        return $this->unit_id ? 'Unidade' : 'Rede';
+        if ($this->unit_id) {
+            return 'Unidade';
+        }
+
+        return $this->region_id ? 'Região' : 'Rede';
     }
 }

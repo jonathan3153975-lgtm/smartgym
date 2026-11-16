@@ -92,7 +92,7 @@ class WorkoutModuleTest extends TestCase
     {
         $this->actingAs($this->networkAdmin);
 
-        $this->get(route('admin.exercises.index'))
+        $this->get(route('admin.exercises.index', ['search' => $this->exercise->name]))
             ->assertOk()
             ->assertSee('Exercícios')
             ->assertSee($this->exercise->name);
@@ -179,6 +179,206 @@ class WorkoutModuleTest extends TestCase
     }
 
     /** @test */
+    public function test_student_can_update_the_plan_definitions_when_completing_a_workout(): void
+    {
+        $plan = $this->createPlan();
+        $session = $this->createSession($plan);
+        $workoutExercise = $this->createWorkoutExercise($session);
+
+        $this->login();
+
+        $this->post(route('student.portal.workouts.start', [$this->network, $session]))
+            ->assertRedirect();
+
+        $log = WorkoutLog::firstOrFail();
+
+        $this->post(route('student.portal.workouts.complete', [$this->network, $log]), [
+            'update_plan' => 1,
+            'sets' => [
+                [
+                    'workout_exercise_id' => $workoutExercise->id,
+                    'exercise_id' => $this->exercise->id,
+                    'exercise_name' => $this->exercise->name,
+                    'muscle_group' => $this->exercise->muscle_group,
+                    'set_number' => 1,
+                    'reps' => 12,
+                    'weight_kg' => '30,500',
+                    'rest_seconds' => 60,
+                ],
+            ],
+        ])->assertRedirect(route('student.portal.workouts.history.show', [$this->network, $log]));
+
+        $workoutExercise->refresh();
+
+        $this->assertSame(12, $workoutExercise->reps);
+        $this->assertSame('30,500', $workoutExercise->suggested_load);
+    }
+
+    /** @test */
+    public function test_student_can_save_progress_and_resume_the_workout(): void
+    {
+        $plan = $this->createPlan();
+        $session = $this->createSession($plan);
+        $workoutExercise = $this->createWorkoutExercise($session);
+
+        $this->login();
+
+        $this->post(route('student.portal.workouts.start', [$this->network, $session]))
+            ->assertRedirect();
+
+        $log = WorkoutLog::firstOrFail();
+
+        $this->postJson(route('student.portal.workouts.save-progress', [$this->network, $log]), [
+            'notes' => 'Pausa para o almoço.',
+            'sets' => [
+                [
+                    'workout_exercise_id' => $workoutExercise->id,
+                    'exercise_id' => $this->exercise->id,
+                    'exercise_name' => $this->exercise->name,
+                    'muscle_group' => $this->exercise->muscle_group,
+                    'set_number' => 1,
+                    'reps' => 12,
+                    'weight_kg' => '30,500',
+                    'rest_seconds' => 60,
+                    'touched' => 1,
+                ],
+            ],
+        ])->assertOk()->assertJsonPath('success', true);
+
+        $this->assertSame(1, $log->sets()->count());
+        $this->assertSame(12, $log->sets()->first()->reps);
+        $this->assertSame('Pausa para o almoço.', $log->fresh()->notes);
+
+        $this->get(route('student.portal.workouts.log', [$this->network, $log]))
+            ->assertOk()
+            ->assertSee('value="12"', false)
+            ->assertSee('value="30,5"', false);
+    }
+
+    /** @test */
+    public function test_student_can_replace_an_exercise_before_starting_it(): void
+    {
+        $plan = $this->createPlan();
+        $session = $this->createSession($plan);
+        $workoutExercise = $this->createWorkoutExercise($session);
+
+        $replacement = Exercise::create([
+            'network_id' => $this->network->id,
+            'name' => 'Remada de teste',
+            'muscle_group' => 'back',
+            'equipment' => 'cable',
+            'status' => 'active',
+        ]);
+
+        $this->login();
+
+        $this->post(route('student.portal.workouts.start', [$this->network, $session]))
+            ->assertRedirect();
+
+        $log = WorkoutLog::firstOrFail();
+
+        $this->post(route('student.portal.workouts.exercises.replace', [$this->network, $log, $workoutExercise]), [
+            'exercise_id' => $replacement->id,
+        ])->assertRedirect(route('student.portal.workouts.log', [$this->network, $log]));
+
+        $workoutExercise->refresh();
+
+        $this->assertSame($replacement->id, $workoutExercise->exercise_id);
+        $this->assertSame('Remada de teste', $workoutExercise->exercise_name);
+        $this->assertSame('back', $workoutExercise->muscle_group);
+    }
+
+    /** @test */
+    public function test_dashboard_frequency_uses_eligible_days_and_ignores_future_dates(): void
+    {
+        $plan = $this->createPlan();
+        $session = $this->createSession($plan);
+
+        $this->student->activeSubscriptions()->update([
+            'weekly_accesses' => 5,
+            'starts_at' => now()->subDays(35),
+        ]);
+
+        for ($day = 0; $day < 15; $day++) {
+            $this->student->workoutLogs()->create([
+                'network_id' => $this->network->id,
+                'workout_plan_id' => $plan->id,
+                'workout_session_id' => $session->id,
+                'session_name' => 'Treino '.$day,
+                'status' => WorkoutLog::STATUS_COMPLETED,
+                'started_at' => now()->subDays($day),
+                'completed_at' => now()->subDays($day)->addHour(),
+                'duration_seconds' => 3600,
+            ]);
+        }
+
+        $this->student->workoutLogs()->create([
+            'network_id' => $this->network->id,
+            'workout_plan_id' => $plan->id,
+            'workout_session_id' => $session->id,
+            'session_name' => 'Treino futuro',
+            'status' => WorkoutLog::STATUS_COMPLETED,
+            'started_at' => now()->addDays(2),
+            'completed_at' => now()->addDays(2)->addHour(),
+            'duration_seconds' => 3600,
+        ]);
+
+        $this->login();
+
+        $this->get(route('student.portal.dashboard', $this->network))
+            ->assertOk()
+            ->assertViewHas('actualDays', 15)
+            ->assertViewHas('expectedDays', 20)
+            ->assertViewHas('frequencyPercent', 75);
+    }
+
+    /** @test */
+    public function test_only_completed_sets_are_recorded_when_finishing_a_workout(): void
+    {
+        $plan = $this->createPlan();
+        $session = $this->createSession($plan);
+        $workoutExercise = $this->createWorkoutExercise($session);
+
+        $this->login();
+
+        $this->post(route('student.portal.workouts.start', [$this->network, $session]))
+            ->assertRedirect();
+
+        $log = WorkoutLog::firstOrFail();
+
+        $this->post(route('student.portal.workouts.complete', [$this->network, $log]), [
+            'sets' => [
+                [
+                    'workout_exercise_id' => $workoutExercise->id,
+                    'exercise_id' => $this->exercise->id,
+                    'exercise_name' => $this->exercise->name,
+                    'muscle_group' => $this->exercise->muscle_group,
+                    'set_number' => 1,
+                    'reps' => 10,
+                    'weight_kg' => 20,
+                    'rest_seconds' => 60,
+                    'completed' => 1,
+                ],
+                [
+                    'workout_exercise_id' => $workoutExercise->id,
+                    'exercise_id' => $this->exercise->id,
+                    'exercise_name' => $this->exercise->name,
+                    'muscle_group' => $this->exercise->muscle_group,
+                    'set_number' => 2,
+                    'reps' => 8,
+                    'weight_kg' => 20,
+                    'rest_seconds' => 60,
+                    'completed' => 0,
+                ],
+            ],
+        ])->assertRedirect();
+
+        $this->assertSame(1, $log->sets()->count());
+        $this->assertSame(10, $log->sets()->first()->reps);
+        $this->assertTrue($log->sets()->first()->completed);
+    }
+
+    /** @test */
     public function test_student_can_start_complete_and_review_a_workout(): void
     {
         $plan = $this->createPlan();
@@ -209,7 +409,9 @@ class WorkoutModuleTest extends TestCase
             ->assertSee('Treino em andamento')
             ->assertSee($this->exercise->name)
             ->assertSee('Descanso 60s')
-            ->assertSee('Concluir série');
+            ->assertSee('Concluir série')
+            ->assertSee('value="10"', false)
+            ->assertSee('value="20 kg"', false);
 
         $this->post(route('student.portal.workouts.complete', [$this->network, $log]), [
             'sets' => [
@@ -230,7 +432,7 @@ class WorkoutModuleTest extends TestCase
                     'muscle_group' => $this->exercise->muscle_group,
                     'set_number' => 2,
                     'reps' => 10,
-                    'weight_kg' => 22.5,
+                    'weight_kg' => '22,500',
                     'rest_seconds' => 60,
                 ],
             ],
@@ -247,7 +449,7 @@ class WorkoutModuleTest extends TestCase
 
         $this->get(route('student.portal.workouts.history', $this->network))
             ->assertOk()
-            ->assertSee('Histórico de treinos')
+            ->assertSee('Histórico')
             ->assertSee('Treino A');
 
         $this->get(route('student.portal.workouts.history.show', [$this->network, $log]))
@@ -255,10 +457,217 @@ class WorkoutModuleTest extends TestCase
             ->assertSee($this->exercise->name)
             ->assertSee('465');
 
+        $this->get(route('student.portal.workouts.session', [$this->network, $session]))
+            ->assertOk()
+            ->assertSee('Última carga: 22,5 kg')
+            ->assertSee('Máxima: 22,5 kg');
+
         $this->get(route('student.portal.workouts.evolution', $this->network))
             ->assertOk()
-            ->assertSee('Evolução dos treinos')
-            ->assertSee('Volume por grupo muscular');
+            ->assertSee('Histórico')
+            ->assertSee('Exercícios por grupo muscular');
+    }
+
+    /** @test */
+    public function test_student_can_complete_a_cardio_exercise_with_time_and_distance(): void
+    {
+        $cardio = Exercise::create([
+            'network_id' => $this->network->id,
+            'name' => 'Esteira de teste',
+            'muscle_group' => 'cardio',
+            'equipment' => 'cardio',
+            'status' => 'active',
+        ]);
+
+        $plan = $this->createPlan();
+        $session = $this->createSession($plan);
+
+        $workoutExercise = $session->exercises()->create([
+            'exercise_id' => $cardio->id,
+            'exercise_name' => $cardio->name,
+            'muscle_group' => $cardio->muscle_group,
+            'order' => 1,
+            'sets' => 1,
+            'reps' => 1,
+            'rest_seconds' => 0,
+            'suggested_load' => '10:00',
+        ]);
+
+        $this->login();
+
+        $this->post(route('student.portal.workouts.start', [$this->network, $session]))
+            ->assertRedirect();
+
+        $log = WorkoutLog::firstOrFail();
+
+        $this->get(route('student.portal.workouts.log', [$this->network, $log]))
+            ->assertOk()
+            ->assertSee('Tempo de cardio')
+            ->assertSee('Distância percorrida (km)')
+            ->assertSee('Iniciar');
+
+        $this->post(route('student.portal.workouts.complete', [$this->network, $log]), [
+            'sets' => [
+                [
+                    'workout_exercise_id' => $workoutExercise->id,
+                    'exercise_id' => $cardio->id,
+                    'exercise_name' => $cardio->name,
+                    'muscle_group' => $cardio->muscle_group,
+                    'set_number' => 1,
+                    'reps' => '',
+                    'weight_kg' => '',
+                    'cardio_seconds' => 750,
+                    'distance_km' => '2,500',
+                    'rest_seconds' => 0,
+                ],
+            ],
+        ])->assertRedirect(route('student.portal.workouts.history.show', [$this->network, $log]));
+
+        $log->refresh();
+
+        $this->assertSame(WorkoutLog::STATUS_COMPLETED, $log->status);
+
+        $set = $log->sets()->firstOrFail();
+
+        $this->assertSame(750, $set->cardio_seconds);
+        $this->assertEqualsWithDelta(2.5, (float) $set->distance_km, 0.001);
+        $this->assertNull($set->weight_kg);
+
+        $this->get(route('student.portal.workouts.history.show', [$this->network, $log]))
+            ->assertOk()
+            ->assertSee('12 min 30 s')
+            ->assertSee('2,500 km');
+
+        $this->get(route('student.portal.workouts.history', $this->network))
+            ->assertOk()
+            ->assertSee('Resumo por grupo muscular')
+            ->assertSee('100%')
+            ->assertSee('Cardio');
+    }
+
+    /** @test */
+    public function test_copying_or_applying_a_plan_increments_its_usage_counter(): void
+    {
+        $plan = $this->createPlan();
+        $plan->update([
+            'student_id' => null,
+            'visibility' => WorkoutPlan::VISIBILITY_PUBLIC,
+        ]);
+
+        $session = $this->createSession($plan);
+        $this->createWorkoutExercise($session);
+
+        $this->login();
+
+        $this->post(route('student.portal.workouts.plans.copy', [$this->network, $plan]))
+            ->assertRedirect();
+
+        $this->assertSame(1, $plan->fresh()->copies_count);
+        $this->assertSame('1 uso', $plan->fresh()->copies_label);
+
+        $this->actingAs($this->networkAdmin)
+            ->post(route('students.workouts.apply', $this->student), [
+                'workout_plan_id' => $plan->id,
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(2, $plan->fresh()->copies_count);
+    }
+
+    /** @test */
+    public function test_history_can_be_filtered_by_month_and_year(): void
+    {
+        $plan = $this->createPlan();
+        $session = $this->createSession($plan);
+
+        $old = $this->student->workoutLogs()->create([
+            'network_id' => $this->network->id,
+            'workout_plan_id' => $plan->id,
+            'workout_session_id' => $session->id,
+            'session_name' => 'Treino Antigo',
+            'status' => WorkoutLog::STATUS_COMPLETED,
+            'started_at' => now()->subMonths(2)->startOfMonth(),
+            'completed_at' => now()->subMonths(2)->startOfMonth()->addHour(),
+            'duration_seconds' => 3600,
+        ]);
+
+        $this->student->workoutLogs()->create([
+            'network_id' => $this->network->id,
+            'workout_plan_id' => $plan->id,
+            'workout_session_id' => $session->id,
+            'session_name' => 'Treino Recente',
+            'status' => WorkoutLog::STATUS_COMPLETED,
+            'started_at' => now(),
+            'completed_at' => now()->addHour(),
+            'duration_seconds' => 1800,
+        ]);
+
+        $this->login();
+
+        $this->get(route('student.portal.workouts.history', [
+            $this->network,
+            'month' => $old->started_at->month,
+            'year' => $old->started_at->year,
+        ]))
+            ->assertOk()
+            ->assertSee('Treino Antigo')
+            ->assertDontSee('Treino Recente')
+            ->assertSee((string) $old->started_at->year);
+    }
+
+    /** @test */
+    public function test_only_the_creator_can_delete_a_workout_plan(): void
+    {
+        $own = $this->createPlan();
+
+        $this->login();
+
+        $this->delete(route('student.portal.workouts.plans.destroy', [$this->network, $own]))
+            ->assertRedirect(route('student.portal.workouts.index', $this->network));
+
+        $this->assertSoftDeleted('workout_plans', ['id' => $own->id]);
+
+        $applied = WorkoutPlan::create([
+            'network_id' => $this->network->id,
+            'unit_id' => $this->unit->id,
+            'student_id' => $this->student->id,
+            'name' => 'Treino aplicado pela equipe',
+            'visibility' => WorkoutPlan::VISIBILITY_PRIVATE,
+            'status' => WorkoutPlan::STATUS_ACTIVE,
+            'created_by' => $this->networkAdmin->id,
+        ]);
+
+        $this->delete(route('student.portal.workouts.plans.destroy', [$this->network, $applied]))
+            ->assertForbidden();
+
+        $studentCreated = $this->createPlan();
+
+        $this->actingAs($this->networkAdmin)
+            ->deleteJson(route('admin.workout-plans.destroy', $studentCreated))
+            ->assertForbidden();
+    }
+
+    /** @test */
+    public function test_student_can_quick_add_an_exercise_from_the_picker(): void
+    {
+        $plan = $this->createPlan();
+        $session = $this->createSession($plan);
+
+        $this->login();
+
+        $this->postJson(route('student.portal.workouts.plans.exercises.store', [$this->network, $session]), [
+            'exercise_id' => $this->exercise->id,
+            'sets' => 3,
+            'reps' => 10,
+            'rest_seconds' => 60,
+        ])->assertOk()->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('workout_exercises', [
+            'workout_session_id' => $session->id,
+            'exercise_id' => $this->exercise->id,
+            'sets' => 3,
+            'reps' => 10,
+        ]);
     }
 
     /** @test */

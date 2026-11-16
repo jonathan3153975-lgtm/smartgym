@@ -108,16 +108,21 @@
                                 </td>
                                 <td class="text-right">
                                     <div class="flex flex-wrap items-center justify-end gap-1">
+                                        <a href="{{ route('students.assessments.create', $student) }}" class="btn-outline" title="Nova avaliação">
+                                            <i class="fas fa-plus"></i>
+                                        </a>
                                         @if ($assessment)
                                             <a href="{{ route('students.assessment', $student) }}" class="btn-outline" title="Ver ficha">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <form method="POST" action="{{ route('unit.assessments.review', $assessment) }}">
-                                                @csrf
-                                                <button type="submit" class="btn-outline" title="{{ $assessment->reviewed_at ? 'Remover verificação' : 'Verificar ficha' }}">
-                                                    <i class="fas {{ $assessment->reviewed_at ? 'fa-rotate-left' : 'fa-check' }}"></i>
-                                                </button>
-                                            </form>
+                                            @if (auth()->user()?->canVerifyAssessments())
+                                                <form method="POST" action="{{ route('unit.assessments.review', $assessment) }}">
+                                                    @csrf
+                                                    <button type="submit" class="btn-outline" title="{{ $assessment->reviewed_at ? 'Remover verificação' : 'Verificar ficha' }}">
+                                                        <i class="fas {{ $assessment->reviewed_at ? 'fa-rotate-left' : 'fa-check' }}"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
                                         @else
                                             <a href="{{ route('students.show', $student) }}" class="btn-outline" title="Ver aluno">
                                                 <i class="fas fa-user"></i>

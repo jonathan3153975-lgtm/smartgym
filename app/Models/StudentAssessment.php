@@ -77,6 +77,7 @@ class StudentAssessment extends Model
         'arm_cm',
         'thigh_cm',
         'observations',
+        'trainer_notes',
         'consent',
         'submitted_at',
         'reviewed_at',

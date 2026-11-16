@@ -16,6 +16,9 @@ class WorkoutLogSet extends Model
         'set_number',
         'reps',
         'weight_kg',
+        'distance_km',
+        'cardio_seconds',
+        'completed',
         'rest_seconds',
     ];
 
@@ -23,6 +26,9 @@ class WorkoutLogSet extends Model
         'set_number' => 'integer',
         'reps' => 'integer',
         'weight_kg' => 'decimal:2',
+        'distance_km' => 'decimal:3',
+        'cardio_seconds' => 'integer',
+        'completed' => 'boolean',
         'rest_seconds' => 'integer',
     ];
 

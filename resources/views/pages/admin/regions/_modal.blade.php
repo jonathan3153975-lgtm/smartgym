@@ -1,6 +1,10 @@
 @php
     $contextNetwork = $network ?? null;
-    $regionNetworkOptions = $contextNetwork ? collect([$contextNetwork]) : \App\Support\TenantContext::current()->networksQuery()->get(['id', 'name']);
+    $tenant = \App\Support\TenantContext::current();
+    $isPlatform = $tenant->isPlatform();
+    $regionNetworkOptions = ($contextNetwork && ! $isPlatform)
+        ? collect([$contextNetwork])
+        : $tenant->networksQuery()->get(['id', 'name']);
     $selectedRegionNetworkId = old('network_id', $contextNetwork?->id ?? ($regionNetworkOptions->count() === 1 ? $regionNetworkOptions->first()->id : null));
 @endphp
 

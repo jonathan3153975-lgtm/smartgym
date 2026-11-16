@@ -16,9 +16,11 @@ class Region extends Model
         'name',
         'description',
         'status',
+        'settings',
     ];
 
     protected $casts = [
+        'settings' => 'array',
         'deleted_at' => 'datetime',
     ];
 

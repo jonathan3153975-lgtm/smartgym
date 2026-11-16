@@ -4,7 +4,7 @@
      role="dialog"
      aria-modal="true"
      aria-labelledby="classModalTitle">
-    <div class="modal-content modal-content-lg">
+    <div class="modal-content">
         <div class="mb-6 flex items-center justify-between">
             <h2 id="classModalTitle" class="text-xl font-bold">Nova turma</h2>
             <button type="button" onclick="closeClassModal()"
@@ -14,94 +14,56 @@
             </button>
         </div>
 
-        <form id="classForm" method="POST" action="{{ route('admin.classes.store') }}" class="space-y-6">
+        <form id="classForm" method="POST" action="{{ route('admin.classes.store') }}" class="space-y-5">
             @csrf
             <input type="hidden" name="_method" id="classFormMethod" value="POST">
 
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="sm:col-span-2">
-                    <label for="class_name" class="label-field">Nome da turma <span class="text-red">*</span></label>
-                    <input type="text" id="class_name" name="name" required maxlength="255" class="input-field"
-                           placeholder="Ex.: Musculação Manhã">
-                </div>
+            <div>
+                <label for="class_name" class="label-field">Nome da turma <span class="text-red">*</span></label>
+                <input type="text" id="class_name" name="name" required maxlength="255" class="input-field"
+                       placeholder="Ex.: Yoga Manhã">
+            </div>
 
-                <div>
-                    <label for="class_unit_id" class="label-field">Unidade <span class="text-red">*</span></label>
-                    <select id="class_unit_id" name="unit_id" required class="input-field">
-                        <option value="">Selecione a unidade</option>
-                        @foreach ($units as $unit)
-                            <option value="{{ $unit->id }}" @selected($units->count() === 1)>{{ $unit->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
+            <div>
+                <label for="class_unit_id" class="label-field">Unidade vinculada <span class="text-red">*</span></label>
+                <select id="class_unit_id" name="unit_id" required class="input-field">
+                    <option value="">Selecione a unidade</option>
+                    @foreach ($units as $unit)
+                        <option value="{{ $unit->id }}" @selected($units->count() === 1)>{{ $unit->name }}</option>
+                    @endforeach
+                </select>
+            </div>
 
-                <div>
-                    <label for="class_modality_id" class="label-field">Modalidade</label>
-                    <select id="class_modality_id" name="modality_id" class="input-field">
-                        <option value="">Sem modalidade</option>
-                        @foreach ($modalities as $modality)
-                            <option value="{{ $modality['id'] }}" data-unit-ids="{{ implode(',', $modality['unit_ids']) }}">
-                                {{ $modality['name'] }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <p class="mt-1 text-xs text-text-secondary">Lista as modalidades disponíveis na unidade selecionada.</p>
-                </div>
+            <div>
+                <label for="class_modality_id" class="label-field">Modalidade</label>
+                <select id="class_modality_id" name="modality_id" class="input-field">
+                    <option value="">Sem modalidade</option>
+                    @foreach ($modalities as $modality)
+                        <option value="{{ $modality['id'] }}" data-unit-ids="{{ implode(',', $modality['unit_ids']) }}">
+                            {{ $modality['name'] }}
+                        </option>
+                    @endforeach
+                </select>
+                <p class="mt-1 text-xs text-text-secondary">Lista as modalidades disponíveis na unidade selecionada.</p>
+            </div>
 
-                <div>
-                    <label for="class_teacher_id" class="label-field">Professor</label>
-                    <select id="class_teacher_id" name="teacher_id" class="input-field">
-                        <option value="">Sem professor</option>
-                        @foreach ($teachers as $teacher)
-                            <option value="{{ $teacher['id'] }}" data-unit-id="{{ $teacher['unit_id'] }}">
-                                {{ $teacher['name'] }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <p class="mt-1 text-xs text-text-secondary">Lista os usuários vinculados à unidade selecionada.</p>
+            <div>
+                <label for="class_drop_in_price" class="label-field">Valor da aula avulsa</label>
+                <div class="relative">
+                    <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-text-secondary">R$</span>
+                    <input type="text" id="class_drop_in_price" data-currency data-currency-target="class_drop_in_price_value"
+                           class="input-field pl-12" placeholder="0,00" inputmode="decimal">
+                    <input type="hidden" id="class_drop_in_price_value" name="drop_in_price">
                 </div>
+                <p class="mt-1 text-xs text-text-secondary">Deixe em branco para não vender aula avulsa.</p>
+            </div>
 
-                <div>
-                    <label for="class_weekday" class="label-field">Dia da semana <span class="text-red">*</span></label>
-                    <select id="class_weekday" name="weekday" required class="input-field">
-                        @foreach (\App\Models\SchoolClass::WEEKDAYS as $value => $label)
-                            <option value="{{ $value }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label for="class_start_time" class="label-field">Início <span class="text-red">*</span></label>
-                        <input type="time" id="class_start_time" name="start_time" required class="input-field">
-                    </div>
-                    <div>
-                        <label for="class_end_time" class="label-field">Fim</label>
-                        <input type="time" id="class_end_time" name="end_time" class="input-field">
-                    </div>
-                </div>
-
-                <div>
-                    <label for="class_vacancies" class="label-field">Número de vagas <span class="text-red">*</span></label>
-                    <input type="number" id="class_vacancies" name="vacancies" min="1" max="9999" step="1"
-                           value="10" required class="input-field">
-                    <p class="mt-1 text-xs text-text-secondary">Quantidade de alunos que a turma comporta.</p>
-                </div>
-
-                <div>
-                    <label for="class_drop_in_price" class="label-field">Valor da aula avulsa</label>
-                    <input type="number" id="class_drop_in_price" name="drop_in_price" min="0" step="0.01"
-                           class="input-field" placeholder="0,00">
-                    <p class="mt-1 text-xs text-text-secondary">Deixe em branco para não vender aula avulsa.</p>
-                </div>
-
-                <div>
-                    <label for="class_status" class="label-field">Status <span class="text-red">*</span></label>
-                    <select id="class_status" name="status" required class="input-field">
-                        <option value="active">Ativa</option>
-                        <option value="inactive">Inativa</option>
-                    </select>
-                </div>
+            <div>
+                <label for="class_status" class="label-field">Status <span class="text-red">*</span></label>
+                <select id="class_status" name="status" required class="input-field">
+                    <option value="active">Ativa</option>
+                    <option value="inactive">Inativa</option>
+                </select>
             </div>
 
             <p id="classFormError"
@@ -129,8 +91,6 @@
         const submitBtn = document.getElementById('classSubmitBtn');
         const errorBox = document.getElementById('classFormError');
         const unitSelect = document.getElementById('class_unit_id');
-        const teacherSelect = document.getElementById('class_teacher_id');
-        const teacherOptions = Array.from(teacherSelect.querySelectorAll('option[data-unit-id]'));
         const modalitySelect = document.getElementById('class_modality_id');
         const modalityOptions = Array.from(modalitySelect.querySelectorAll('option[data-unit-ids]'));
 
@@ -140,34 +100,10 @@
 
         const fields = {
             name: document.getElementById('class_name'),
-            weekday: document.getElementById('class_weekday'),
-            start_time: document.getElementById('class_start_time'),
-            end_time: document.getElementById('class_end_time'),
-            vacancies: document.getElementById('class_vacancies'),
-            drop_in_price: document.getElementById('class_drop_in_price'),
             status: document.getElementById('class_status'),
         };
 
         let currentId = null;
-
-        function filterTeachers() {
-            const unitId = unitSelect.value;
-            let hasSelected = false;
-
-            teacherOptions.forEach(function (option) {
-                const matches = Boolean(unitId) && option.dataset.unitId === unitId;
-                option.hidden = !matches;
-                option.disabled = !matches;
-
-                if (matches && option.selected) {
-                    hasSelected = true;
-                }
-            });
-
-            if (!hasSelected) {
-                teacherSelect.value = '';
-            }
-        }
 
         function filterModalities() {
             const unitId = unitSelect.value;
@@ -184,19 +120,14 @@
             }
         }
 
-        function filterUnitOptions() {
-            filterTeachers();
-            filterModalities();
-        }
-
-        unitSelect.addEventListener('change', filterUnitOptions);
+        unitSelect.addEventListener('change', filterModalities);
 
         window.openClassModal = function (id = null) {
             form.reset();
             errorBox.classList.add('hidden');
             errorBox.textContent = '';
             currentId = id;
-            filterUnitOptions();
+            filterModalities();
 
             if (id) {
                 title.textContent = 'Editar turma';
@@ -225,9 +156,9 @@
                         });
 
                         unitSelect.value = data.unit_id ?? '';
-                        filterUnitOptions();
+                        filterModalities();
                         modalitySelect.value = data.modality_id ?? '';
-                        teacherSelect.value = data.teacher_id ?? '';
+                        window.SmartGymSetCurrency(document.getElementById('class_drop_in_price'), data.drop_in_price);
                     })
                     .catch(function (error) {
                         alertError('Erro', error.message);

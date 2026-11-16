@@ -27,7 +27,10 @@
                             @endif
                         </td>
                         <td class="text-sm">{{ $plan->createdBy?->name ?? 'Aluno' }}</td>
-                        <td class="text-sm">{{ $plan->sessions_count }}</td>
+                        <td class="text-sm">
+                            {{ $plan->sessions_count }}
+                            <span class="block text-xs text-text-secondary">{{ $plan->copies_label }}</span>
+                        </td>
                         <td>
                             <span class="badge {{ $plan->isPublic() ? 'badge-success' : 'badge-secondary' }}">
                                 {{ $plan->isPublic() ? 'Público' : 'Privado' }}
@@ -59,13 +62,15 @@
                                         title="{{ $plan->isActive() ? 'Inativar' : 'Ativar' }}">
                                     <i class="fas {{ $plan->isActive() ? 'fa-toggle-on' : 'fa-toggle-off' }}"></i>
                                 </button>
-                                <button type="button"
-                                        data-plan-id="{{ $plan->id }}"
-                                        data-plan-name="{{ $plan->name }}"
-                                        class="delete-workout-plan p-2 rounded-lg hover:bg-surface-elevated transition-colors text-text-secondary"
-                                        title="Excluir">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                                @if (! ($plan->student_id && $plan->created_by === null))
+                                    <button type="button"
+                                            data-plan-id="{{ $plan->id }}"
+                                            data-plan-name="{{ $plan->name }}"
+                                            class="delete-workout-plan p-2 rounded-lg hover:bg-surface-elevated transition-colors text-text-secondary"
+                                            title="Excluir">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -91,7 +96,7 @@
 
                 <div class="mt-3 space-y-1 text-sm text-text-secondary">
                     <p><i class="fas fa-user mr-1 w-4 text-center"></i>{{ $plan->createdBy?->name ?? 'Aluno' }}</p>
-                    <p><i class="fas fa-list-check mr-1 w-4 text-center"></i>{{ $plan->sessions_count }} sessão(ões)</p>
+                    <p><i class="fas fa-list-check mr-1 w-4 text-center"></i>{{ $plan->sessions_count }} sessão(ões) &middot; {{ $plan->copies_label }}</p>
                     <p>
                         <i class="fas fa-eye mr-1 w-4 text-center"></i>
                         {{ $plan->isPublic() ? 'Público' : 'Privado' }}
@@ -116,13 +121,15 @@
                             title="{{ $plan->isActive() ? 'Inativar' : 'Ativar' }}">
                         <i class="fas {{ $plan->isActive() ? 'fa-toggle-on' : 'fa-toggle-off' }}"></i>
                     </button>
-                    <button type="button"
-                            data-plan-id="{{ $plan->id }}"
-                            data-plan-name="{{ $plan->name }}"
-                            class="delete-workout-plan p-2 rounded-lg hover:bg-surface transition-colors text-text-secondary"
-                            title="Excluir">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    @if (! ($plan->student_id && $plan->created_by === null))
+                        <button type="button"
+                                data-plan-id="{{ $plan->id }}"
+                                data-plan-name="{{ $plan->name }}"
+                                class="delete-workout-plan p-2 rounded-lg hover:bg-surface transition-colors text-text-secondary"
+                                title="Excluir">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    @endif
                 </div>
             </div>
         @endforeach

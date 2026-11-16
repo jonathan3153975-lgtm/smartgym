@@ -81,6 +81,7 @@ export function setCurrencyValue(input, value) {
 }
 
 window.SmartGymSetCurrency = setCurrencyValue;
+window.SmartGymInitCurrencyMasks = initCurrencyMasks;
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => initCurrencyMasks());

@@ -42,6 +42,15 @@ class MercadoPagoClient
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
+    public function createPayment(array $payload): array
+    {
+        return $this->post('/v1/payments', $payload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
     private function post(string $path, array $payload): array
     {
         try {

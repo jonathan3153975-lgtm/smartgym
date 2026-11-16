@@ -99,4 +99,23 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasPermission($permissionKey);
     }
+
+    /**
+     * Assessment verification is reserved for trainers and management profiles.
+     */
+    public function canVerifyAssessments(): bool
+    {
+        return $this->hasPermission('workouts.manage')
+            || ($this->person?->isTeacher() ?? false);
+    }
+
+    /**
+     * Whether the user can record assessments on behalf of students.
+     *
+     * Temporarily open to every staff user; tighten with a permission later.
+     */
+    public function canCreateAssessments(): bool
+    {
+        return true;
+    }
 }

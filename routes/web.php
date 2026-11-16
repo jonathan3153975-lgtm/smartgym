@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\PlanParameterController;
 use App\Http\Controllers\Admin\RegionController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\StudentAccessController;
+use App\Http\Controllers\Admin\StudentAssessmentReviewController;
 use App\Http\Controllers\Admin\StudentController;
 use App\Http\Controllers\Admin\UnitController;
 use App\Http\Controllers\Admin\UserController;
@@ -27,8 +28,10 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\CashController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExerciseImageController;
+use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\MercadoPagoWebhookController;
 use App\Http\Controllers\ModalityImageController;
 use App\Http\Controllers\NetworkLogoController;
@@ -38,8 +41,11 @@ use App\Http\Controllers\StudentAvatarController;
 use App\Http\Controllers\StudentCheckinController;
 use App\Http\Controllers\StudentCheckoutController;
 use App\Http\Controllers\StudentClassController;
+use App\Http\Controllers\StudentContractController;
+use App\Http\Controllers\StudentFinanceController;
 use App\Http\Controllers\StudentMeasurementController;
 use App\Http\Controllers\StudentPortalController;
+use App\Http\Controllers\StudentSaleController;
 use App\Http\Controllers\StudentTechnicalSheetController;
 use App\Http\Controllers\StudentWorkoutController;
 use App\Http\Controllers\StudentWorkoutPlanBuilderController;
@@ -49,6 +55,7 @@ use App\Http\Controllers\Unit\AssessmentController as UnitAssessmentController;
 use App\Http\Controllers\Unit\ClassController as UnitClassController;
 use App\Http\Controllers\Unit\DashboardController as UnitDashboardController;
 use App\Http\Controllers\Unit\PaymentController as UnitPaymentController;
+use App\Http\Controllers\Unit\SettingsController as UnitSettingsController;
 use App\Http\Controllers\Unit\StudentController as UnitStudentController;
 use App\Http\Middleware\StudentPortalAccess;
 use App\Http\Middleware\StudentPortalNetwork;
@@ -125,9 +132,13 @@ Route::prefix('r/{network:slug}')
             Route::get('workouts/sessions/{workoutSession}', [StudentWorkoutController::class, 'showSession'])->name('workouts.session');
             Route::post('workouts/sessions/{workoutSession}/start', [StudentWorkoutController::class, 'start'])->name('workouts.start');
             Route::get('workouts/logs/{workoutLog}', [StudentWorkoutController::class, 'log'])->name('workouts.log');
+            Route::post('workouts/logs/{workoutLog}/save', [StudentWorkoutController::class, 'saveProgress'])->name('workouts.save-progress');
+            Route::post('workouts/logs/{workoutLog}/exercises/{workoutExercise}/replace', [StudentWorkoutController::class, 'replaceExercise'])->name('workouts.exercises.replace');
             Route::post('workouts/logs/{workoutLog}/complete', [StudentWorkoutController::class, 'complete'])->name('workouts.complete');
             Route::post('workouts/plans', [StudentWorkoutPlanController::class, 'store'])->name('workouts.plans.store');
+            Route::get('workouts/plans/search', [StudentWorkoutPlanController::class, 'search'])->name('workouts.plans.search');
             Route::post('workouts/plans/{workoutPlan}/copy', [StudentWorkoutPlanController::class, 'copy'])->name('workouts.plans.copy');
+            Route::delete('workouts/plans/{workoutPlan}', [StudentWorkoutPlanController::class, 'destroy'])->name('workouts.plans.destroy');
             Route::patch('workouts/plans/{workoutPlan}/activate', [StudentWorkoutPlanController::class, 'activate'])->name('workouts.plans.activate');
             Route::patch('workouts/plans/{workoutPlan}/visibility', [StudentWorkoutPlanController::class, 'visibility'])->name('workouts.plans.visibility');
             Route::get('workouts/plans/{workoutPlan}/builder', [StudentWorkoutPlanController::class, 'builder'])->name('workouts.plans.builder');
@@ -142,11 +153,16 @@ Route::prefix('r/{network:slug}')
             Route::post('measurements', [StudentMeasurementController::class, 'store'])->name('measurements.store');
             Route::delete('measurements/{bodyMeasurement}', [StudentMeasurementController::class, 'destroy'])->name('measurements.destroy');
             Route::get('classes', [StudentClassController::class, 'index'])->name('classes.index');
-            Route::post('classes/{schoolClass}/checkout', [StudentClassController::class, 'checkout'])->name('classes.checkout');
-            Route::post('classes/{schoolClass}/reserve', [StudentClassController::class, 'reserve'])->name('classes.reserve');
+            Route::post('classes/{classSchedule}/checkout', [StudentClassController::class, 'checkout'])->name('classes.checkout');
+            Route::post('classes/{classSchedule}/reserve', [StudentClassController::class, 'reserve'])->name('classes.reserve');
             Route::get('classes/bookings/{classBooking}', [StudentClassController::class, 'bookingStatus'])->name('classes.booking.status');
+            Route::post('classes/bookings/{classBooking}/checkin', [StudentFinanceController::class, 'checkin'])->name('classes.checkin');
+            Route::get('finance', [StudentFinanceController::class, 'index'])->name('finance.index');
+            Route::post('finance/charges/{charge}/pix', [StudentFinanceController::class, 'pix'])->name('finance.pix');
             Route::post('checkin/trial', [StudentCheckinController::class, 'trial'])->name('checkin.trial');
             Route::get('dashboard', [StudentPortalController::class, 'dashboard'])->name('dashboard');
+            Route::get('profile', [StudentPortalController::class, 'profile'])->name('profile');
+            Route::put('profile', [StudentPortalController::class, 'updateProfile'])->name('profile.update');
             Route::get('password', [StudentPortalController::class, 'showPasswordForm'])->name('password.edit');
             Route::post('password', [StudentPortalController::class, 'updatePassword'])->name('password.update');
             Route::post('logout', [StudentPortalController::class, 'logout'])->name('logout');
@@ -181,8 +197,36 @@ Route::middleware('auth')->group(function () {
 
 // Protected Routes
 Route::middleware(['auth', 'verified'])->group(function () {
+    // Global search
+    Route::get('search', GlobalSearchController::class)->name('global.search');
+
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Management
+    Route::prefix('management')->name('management.')->group(function () {
+        Route::get('cash', [CashController::class, 'index'])
+            ->middleware('can:students.view')
+            ->name('cash.index');
+        Route::get('cash/{charge}/receipt', [CashController::class, 'receipt'])
+            ->middleware('can:students.view')
+            ->name('cash.receipt');
+        Route::post('cash/{charge}/confirm', [CashController::class, 'confirm'])
+            ->middleware('can:students.edit')
+            ->name('cash.confirm');
+        Route::post('cash/{charge}/pix', [CashController::class, 'pix'])
+            ->middleware('can:students.edit')
+            ->name('cash.pix');
+        Route::post('cash/{charge}/email', [CashController::class, 'email'])
+            ->middleware('can:students.edit')
+            ->name('cash.email');
+        Route::post('cash/{charge}/notify', [CashController::class, 'notify'])
+            ->middleware('can:students.edit')
+            ->name('cash.notify');
+        Route::post('cash/{charge}/link', [CashController::class, 'link'])
+            ->middleware('can:students.edit')
+            ->name('cash.link');
+    });
 
     // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -218,6 +262,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->name('network.settings.edit');
             Route::put('network/settings', [NetworkSettingsController::class, 'update'])
                 ->name('network.settings.update');
+
+            Route::get('network/settings/company', [NetworkSettingsController::class, 'company'])
+                ->name('network.settings.company');
+            Route::put('network/settings/company', [NetworkSettingsController::class, 'updateCompany'])
+                ->name('network.settings.company.update');
+
+            Route::get('network/settings/policies', [NetworkSettingsController::class, 'policies'])
+                ->name('network.settings.policies');
+            Route::put('network/settings/policies', [NetworkSettingsController::class, 'updatePolicies'])
+                ->name('network.settings.policies.update');
+
+            Route::get('network/settings/receipts', [NetworkSettingsController::class, 'receipts'])
+                ->name('network.settings.receipts');
+            Route::put('network/settings/receipts', [NetworkSettingsController::class, 'updateReceipts'])
+                ->name('network.settings.receipts.update');
+
+            Route::get('network/settings/appearance', [NetworkSettingsController::class, 'appearance'])
+                ->name('network.settings.appearance');
+            Route::put('network/settings/appearance', [NetworkSettingsController::class, 'updateAppearance'])
+                ->name('network.settings.appearance.update');
         });
 
         Route::middleware('can:regions.manage')->group(function () {
@@ -229,6 +293,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         Route::middleware('can:units.manage')->group(function () {
+            Route::get('regions/{region}/settings', [RegionController::class, 'settings'])
+                ->name('regions.settings');
+            Route::put('regions/{region}/settings', [RegionController::class, 'updateSettings'])
+                ->name('regions.settings.update');
+
             Route::resource('units', UnitController::class)
                 ->only(['index', 'show', 'store', 'update', 'destroy'])
                 ->names('units');
@@ -327,6 +396,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{class}/edit-data', [ClassController::class, 'editData'])
                 ->middleware('can:classes.manage')
                 ->name('edit-data');
+            Route::get('{class}/schedules-data', [ClassController::class, 'schedulesData'])
+                ->middleware('can:classes.manage')
+                ->name('schedules-data');
+            Route::put('{class}/schedules', [ClassController::class, 'syncSchedules'])
+                ->middleware('can:classes.manage')
+                ->name('schedules.sync');
             Route::put('{class}', [ClassController::class, 'update'])
                 ->middleware('can:classes.manage')
                 ->name('update');
@@ -418,18 +493,61 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{student}/assessment', [StudentController::class, 'assessment'])
             ->middleware('can:students.view')
             ->name('assessment');
-        Route::get('/{student}/measurements', [StudentController::class, 'measurements'])
+        Route::get('/{student}/assessments/create', [StudentController::class, 'createAssessment'])
             ->middleware('can:students.view')
-            ->name('measurements');
+            ->name('assessments.create');
+        Route::post('/{student}/assessments', [StudentController::class, 'storeAssessment'])
+            ->middleware('can:students.view')
+            ->name('assessments.store');
+        Route::get('/{student}/assessments/{assessment}/verify', [StudentAssessmentReviewController::class, 'edit'])
+            ->middleware('can:students.view')
+            ->name('assessments.verify');
+        Route::put('/{student}/assessments/{assessment}/verify', [StudentAssessmentReviewController::class, 'update'])
+            ->middleware('can:students.view')
+            ->name('assessments.verify.update');
         Route::get('/{student}/technical-sheet', [StudentTechnicalSheetController::class, 'show'])
             ->middleware('can:students.view')
             ->name('technical-sheet');
-        Route::post('/{student}/technical-sheet/plan', [StudentTechnicalSheetController::class, 'storePlan'])
+        Route::get('/{student}/workouts', [StudentTechnicalSheetController::class, 'workouts'])
+            ->middleware('can:students.view')
+            ->name('workouts');
+        Route::post('/{student}/workouts/plan', [StudentTechnicalSheetController::class, 'storePlan'])
             ->middleware('can:workouts.manage')
-            ->name('technical-sheet.plan');
-        Route::post('/{student}/technical-sheet/apply', [StudentTechnicalSheetController::class, 'applyPlan'])
+            ->name('workouts.plan');
+        Route::post('/{student}/workouts/apply', [StudentTechnicalSheetController::class, 'applyPlan'])
             ->middleware('can:workouts.manage')
-            ->name('technical-sheet.apply');
+            ->name('workouts.apply');
+
+        Route::get('/{student}/contracts', [StudentContractController::class, 'index'])
+            ->middleware('can:students.view')
+            ->name('contracts');
+        Route::get('/{student}/sales/create', [StudentSaleController::class, 'create'])
+            ->middleware('can:students.edit')
+            ->name('sales.create');
+        Route::post('/{student}/sales', [StudentSaleController::class, 'store'])
+            ->middleware('can:students.edit')
+            ->name('sales.store');
+        Route::get('/{student}/sales/{sale}/checkout', [StudentSaleController::class, 'checkout'])
+            ->middleware('can:students.edit')
+            ->name('sales.checkout');
+        Route::post('/{student}/sales/{sale}/checkout', [StudentSaleController::class, 'finalize'])
+            ->middleware('can:students.edit')
+            ->name('sales.finalize');
+        Route::delete('/{student}/sales/{sale}/items/{item}', [StudentSaleController::class, 'destroyItem'])
+            ->middleware('can:students.edit')
+            ->name('sales.items.destroy');
+        Route::post('/{student}/contracts/charges/{charge}/pay', [StudentContractController::class, 'pay'])
+            ->middleware('can:students.edit')
+            ->name('contracts.pay');
+        Route::post('/{student}/contracts/charges/{charge}/pix', [StudentContractController::class, 'pix'])
+            ->middleware('can:students.edit')
+            ->name('contracts.pix');
+        Route::post('/{student}/contracts/charges/{charge}/email', [StudentContractController::class, 'sendEmail'])
+            ->middleware('can:students.edit')
+            ->name('contracts.email');
+        Route::post('/{student}/contracts/charges/{charge}/cancel', [StudentContractController::class, 'cancel'])
+            ->middleware('can:students.edit')
+            ->name('contracts.cancel');
         Route::put('/{student}/access', [StudentAccessController::class, 'update'])
             ->middleware('can:students.edit')
             ->name('access.update');
@@ -475,6 +593,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('class-bookings/{booking}/confirm', [UnitClassController::class, 'confirmBooking'])
             ->middleware('can:classes.manage')
             ->name('class-bookings.confirm');
+        Route::get('settings', [UnitSettingsController::class, 'edit'])
+            ->middleware('can:users.manage')
+            ->name('settings.edit');
+        Route::put('settings', [UnitSettingsController::class, 'update'])
+            ->middleware('can:users.manage')
+            ->name('settings.update');
     });
 
     // Admin Routes (for platform developer) - will be implemented in Phase 1

@@ -12,6 +12,33 @@
     $requestedMode = old('theme_mode', $themeMode);
     $editingMode = in_array($requestedMode, ['light', 'dark'], true) ? $requestedMode : 'dark';
 
+    $section = $section ?? null;
+    $sectionTab = [
+        'company' => 'empresa',
+        'policies' => 'politica',
+        'receipts' => 'pagamentos',
+    ][$section] ?? null;
+
+    $pageTitle = [
+        'company' => 'Dados da empresa',
+        'policies' => 'Políticas',
+        'receipts' => 'Recebimentos',
+    ][$section] ?? 'Configurações da rede';
+
+    $formAction = match ($section) {
+        'company' => route('admin.network.settings.company.update'),
+        'policies' => route('admin.network.settings.policies.update'),
+        'receipts' => route('admin.network.settings.receipts.update'),
+        default => route('admin.network.settings.update'),
+    };
+
+    $submitLabel = match ($section) {
+        'company' => 'Salvar dados da empresa',
+        'policies' => 'Salvar políticas',
+        'receipts' => 'Salvar recebimentos',
+        default => 'Salvar configurações',
+    };
+
     $errorKeys = $errors->keys();
     $hasErrorPrefix = fn (string $prefix): bool => collect($errorKeys)->contains(
         fn (string $key): bool => str_starts_with($key, $prefix)
@@ -24,9 +51,10 @@
         'pagamentos' => $hasErrorPrefix('mercado_pago'),
     ];
 
-    $initialTab = $tabHasErrors['tema']
-        ? 'tema'
-        : ($tabHasErrors['politica'] ? 'politica' : ($tabHasErrors['pagamentos'] ? 'pagamentos' : 'empresa'));
+    $initialTab = $sectionTab
+        ?? ($tabHasErrors['tema']
+            ? 'tema'
+            : ($tabHasErrors['politica'] ? 'politica' : ($tabHasErrors['pagamentos'] ? 'pagamentos' : 'empresa')));
 
     $settingsTabs = [
         'empresa' => ['label' => 'Dados da empresa', 'icon' => 'fa-building'],
@@ -37,10 +65,10 @@
 @endphp
 
 @section('content')
-<div class="w-full space-y-6 p-4 sm:p-6">
+<div class="container mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
     <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <h1 class="text-2xl font-bold">Configurações da rede</h1>
+            <h1 class="text-2xl font-bold">{{ $pageTitle }}</h1>
             <p class="mt-1 text-text-secondary">{{ $network->name }} &middot; {{ $network->slug }}</p>
         </div>
         <p class="text-xs text-text-secondary">
@@ -48,6 +76,8 @@
             Administração da rede
         </p>
     </div>
+
+    {{-- Header --}}
 
     @if (session('success'))
         <div class="rounded-lg px-4 py-3 text-sm" style="background: var(--color-success-soft); border: 1px solid var(--color-success); color: var(--color-success);">
@@ -67,7 +97,7 @@
     @endif
 
     <form id="networkSettingsForm"
-          action="{{ route('admin.network.settings.update') }}"
+          action="{{ $formAction }}"
           method="POST"
           enctype="multipart/form-data"
           class="space-y-6">
@@ -75,7 +105,8 @@
         @method('PUT')
 
         {{-- Tabs (desktop) --}}
-        <div class="hidden md:block" role="tablist" aria-label="Seções das configurações">
+        @if (! $section)
+            <div class="hidden md:block" role="tablist" aria-label="Seções das configurações">
             <div class="flex gap-1 rounded-xl border border-custom bg-bg-secondary p-1">
                 @foreach ($settingsTabs as $tabKey => $tab)
                     <button type="button"
@@ -95,28 +126,31 @@
                 @endforeach
             </div>
         </div>
+        @endif
 
         {{-- Tabs (mobile) --}}
-        <div class="md:hidden">
-            <label for="settingsTabSelect" class="label-field">Seção</label>
-            <select id="settingsTabSelect" class="input-field">
-                @foreach ($settingsTabs as $tabKey => $tab)
-                    <option value="{{ $tabKey }}" @selected($initialTab === $tabKey)>{{ $tab['label'] }}</option>
-                @endforeach
-            </select>
-        </div>
+        @if (! $section)
+            <div class="md:hidden">
+                <label for="settingsTabSelect" class="label-field">Seção</label>
+                <select id="settingsTabSelect" class="input-field">
+                    @foreach ($settingsTabs as $tabKey => $tab)
+                        <option value="{{ $tabKey }}" @selected($initialTab === $tabKey)>{{ $tab['label'] }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
 
         {{-- Tab contents --}}
         <div class="min-h-[320px]" data-initial-settings-tab="{{ $initialTab }}">
             {{-- Dados da empresa --}}
+            @if (! $section || $section === 'company')
             <div id="settings-panel-empresa"
                  data-settings-panel="empresa"
                  role="tabpanel"
                  aria-labelledby="settings-tab-empresa"
                  class="{{ $initialTab === 'empresa' ? '' : 'hidden' }}">
-                <div class="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
-                    <div class="space-y-6">
-                        <section class="card space-y-6">
+                <div class="space-y-6">
+                    <section class="card space-y-6">
                             <div class="flex items-center justify-between gap-3">
                                 <h2 class="flex items-center gap-2 font-semibold">
                                     <i class="fas fa-building text-cyan"></i>
@@ -205,29 +239,8 @@
                                 </div>
                             </div>
 
-                            {{-- Student portal link --}}
-                            <div class="rounded-xl border border-custom bg-bg-secondary p-4">
-                                <div class="flex items-center justify-between gap-3">
-                                    <label for="student_portal_url" class="label-field mb-0">Portal do aluno</label>
-                                    <span class="badge badge-info">Link de divulgação</span>
-                                </div>
-                                <p class="mt-1 text-xs text-text-secondary">
-                                    Divulgue este endereço para os alunos fazerem login no portal da rede.
-                                </p>
-                                <div class="mt-3 flex flex-col gap-2 sm:flex-row">
-                                    <input type="text" id="student_portal_url" readonly
-                                           value="{{ route('student.portal.index', $network) }}"
-                                           class="input-field font-mono text-xs">
-                                    <button type="button" onclick="copyStudentPortalUrl()" class="btn-outline whitespace-nowrap">
-                                        <i class="fas fa-copy mr-2"></i>
-                                        Copiar
-                                    </button>
-                                </div>
-                            </div>
                         </section>
-                    </div>
 
-                    <div class="space-y-6">
                         {{-- Address --}}
                         <section class="card space-y-4">
                             <h2 class="flex items-center gap-2 font-semibold">
@@ -313,11 +326,35 @@
                                 </div>
                             </div>
                         </section>
-                    </div>
+
+                        {{-- Student portal link --}}
+                        <section class="card space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                <h2 class="flex items-center gap-2 font-semibold">
+                                    <i class="fas fa-link text-cyan"></i>
+                                    Portal do aluno
+                                </h2>
+                                <span class="badge badge-info">Link de divulgação</span>
+                            </div>
+                            <p class="text-xs text-text-secondary">
+                                Divulgue este endereço para os alunos fazerem login no portal da rede.
+                            </p>
+                            <div class="flex flex-col gap-2 sm:flex-row">
+                                <input type="text" id="student_portal_url" readonly
+                                       value="{{ route('student.portal.index', $network) }}"
+                                       class="input-field font-mono text-xs">
+                                <button type="button" onclick="copyStudentPortalUrl()" class="btn-outline whitespace-nowrap">
+                                    <i class="fas fa-copy mr-2"></i>
+                                    Copiar
+                                </button>
+                            </div>
+                        </section>
                 </div>
             </div>
+            @endif
 
             {{-- Tema --}}
+            @if (! $section)
             <div id="settings-panel-tema"
                  data-settings-panel="tema"
                  role="tabpanel"
@@ -404,6 +441,8 @@
             </div>
 
             {{-- Política --}}
+            @endif
+            @if (! $section || $section === 'policies')
             <div id="settings-panel-politica"
                  data-settings-panel="politica"
                  role="tabpanel"
@@ -465,14 +504,45 @@
                     </section>
                 </div>
             </div>
+            @endif
 
             {{-- Pagamentos --}}
+            @if (! $section || $section === 'receipts')
             <div id="settings-panel-pagamentos"
                  data-settings-panel="pagamentos"
                  role="tabpanel"
                  aria-labelledby="settings-tab-pagamentos"
                  class="{{ $initialTab === 'pagamentos' ? '' : 'hidden' }}">
                 <div class="space-y-6">
+                    <section class="card space-y-4">
+                        <div>
+                            <h2 class="flex items-center gap-2 font-semibold">
+                                <i class="fas fa-ticket text-cyan"></i>
+                                Valor padrão da diária
+                            </h2>
+                            <p class="mt-1 text-xs text-text-secondary">
+                                Usado pelas unidades que não definirem um valor próprio. Regiões e unidades herdam este valor.
+                            </p>
+                        </div>
+
+                        <div class="max-w-xs">
+                            <label for="day_pass_price" class="label-field">Valor da diária</label>
+                            <div class="relative">
+                                <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-text-secondary">R$</span>
+                                <input type="number" id="day_pass_price" name="day_pass_price" min="0" step="0.01"
+                                       class="input-field pl-12"
+                                       value="{{ old('day_pass_price', $dayPassResolved['price'] ?? '') }}"
+                                       placeholder="0,00">
+                            </div>
+                            <p class="mt-1 text-xs text-text-secondary">
+                                Atual: {{ $dayPassResolved['price'] !== null ? 'R$ '.number_format($dayPassResolved['price'], 2, ',', '.') : 'Não definido' }}
+                                @if ($dayPassResolved['source'])
+                                    ({{ $dayPassResolved['source'] === 'unit' ? 'unidade' : ($dayPassResolved['source'] === 'region' ? 'região' : 'rede') }})
+                                @endif
+                            </p>
+                        </div>
+                    </section>
+
                     <section class="card space-y-5">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
@@ -567,13 +637,14 @@
                     </section>
                 </div>
             </div>
+            @endif
         </div>
 
         <div class="flex flex-col-reverse justify-end gap-3 border-t border-custom pt-4 sm:flex-row">
             <a href="{{ route('admin.dashboard') }}" class="btn-outline justify-center text-center">Voltar</a>
             <button type="submit" class="btn-primary">
                 <i class="fas fa-save mr-2"></i>
-                Salvar configurações
+                {{ $submitLabel }}
             </button>
         </div>
     </form>

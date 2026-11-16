@@ -19,7 +19,10 @@
                     @php($canManage = \App\Support\RecordScope::canManage($plan, $tenant))
                     <tr>
                         <td>
-                            <div class="font-medium">{{ $plan->name }}</div>
+                            <div class="flex flex-wrap items-center gap-2 font-medium">
+                                {{ $plan->name }}
+                                <span class="badge badge-secondary">{{ $plan->type_label }}</span>
+                            </div>
                             <div class="text-xs text-text-secondary">
                                 <span class="badge badge-info">{{ $plan->created_level_label }}</span>
                                 {{ $plan->description ? '· '.$plan->description : '' }}
@@ -27,17 +30,17 @@
                         </td>
                         <td class="text-sm">
                             <div>{{ $plan->period_label }}</div>
-                            <div class="text-xs text-text-secondary">{{ $plan->duration_days }} dias de acesso</div>
+                            <div class="text-xs text-text-secondary">{{ $plan->duration_days }} dias de vigência</div>
                         </td>
                         <td class="text-sm">
-                            <div>{{ $plan->weekly_accesses }}x por semana</div>
-                            <div class="text-xs text-text-secondary">{{ $plan->daily_checkins }} check-in(s)/dia</div>
+                            <div>{{ $plan->weekly_accesses }}x {{ $plan->weekly_access_label }}</div>
+                            <div class="text-xs text-text-secondary">{{ $plan->daily_checkins }} {{ $plan->daily_checkin_label }}</div>
                         </td>
                         <td class="text-sm">
                             {{ $plan->all_units ? 'Todas' : $plan->units_count.' unidade(s)' }}
                         </td>
                         <td class="text-sm">
-                            {{ $plan->all_modalities ? 'Todas' : $plan->modalities_count.' modalidade(s)' }}
+                            {{ $plan->modality_access_label }}
                         </td>
                         <td class="text-sm font-medium">
                             {{ $plan->price !== null ? 'R$ '.number_format((float) $plan->price, 2, ',', '.') : '—' }}
@@ -80,13 +83,16 @@
                         <p class="truncate font-semibold">{{ $plan->name }}</p>
                         <p class="text-xs text-text-secondary">{{ $plan->period_label }} · {{ $plan->duration_days }} dias</p>
                     </div>
-                    <span class="badge badge-info whitespace-nowrap">{{ $plan->created_level_label }}</span>
+                    <div class="flex flex-col items-end gap-1">
+                        <span class="badge badge-info whitespace-nowrap">{{ $plan->created_level_label }}</span>
+                        <span class="badge badge-secondary whitespace-nowrap">{{ $plan->type_label }}</span>
+                    </div>
                 </div>
 
                 <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-text-secondary">
-                    <p><i class="fas fa-calendar mr-1"></i>{{ $plan->weekly_accesses }}x/semana · {{ $plan->daily_checkins }} check-in(s)/dia</p>
+                    <p><i class="fas fa-calendar mr-1"></i>{{ $plan->weekly_accesses }}x {{ $plan->weekly_access_label }} · {{ $plan->daily_checkins }} {{ $plan->daily_checkin_label }}</p>
                     <p><i class="fas fa-building mr-1"></i>{{ $plan->all_units ? 'Todas as unidades' : $plan->units_count.' unidade(s)' }}</p>
-                    <p class="col-span-2"><i class="fas fa-dumbbell mr-1"></i>{{ $plan->all_modalities ? 'Todas as modalidades' : $plan->modalities_count.' modalidade(s)' }}</p>
+                    <p class="col-span-2"><i class="fas fa-dumbbell mr-1"></i>{{ $plan->modality_access_label }}</p>
                     <p class="col-span-2 font-medium text-text-primary">
                         {{ $plan->price !== null ? 'R$ '.number_format((float) $plan->price, 2, ',', '.') : 'Sem valor informado' }}
                     </p>

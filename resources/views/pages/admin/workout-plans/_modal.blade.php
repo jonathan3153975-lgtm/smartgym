@@ -32,6 +32,19 @@
                 </div>
 
                 <div class="sm:col-span-2">
+                    <label class="label-field">Objetivos do treino</label>
+                    <div class="grid grid-cols-1 gap-2 rounded-xl border border-custom bg-bg-secondary p-3 sm:grid-cols-2">
+                        @foreach (\App\Models\StudentAssessment::GOALS as $goalValue => $goalLabel)
+                            <label class="flex cursor-pointer items-center gap-2 text-sm">
+                                <input type="checkbox" name="goals[]" value="{{ $goalValue }}" data-workout-plan-goal>
+                                <span>{{ $goalLabel }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                    <p class="mt-1 text-xs text-text-secondary">Selecione um ou mais objetivos. Eles serão usados na busca e na aplicação do treino.</p>
+                </div>
+
+                <div class="sm:col-span-2">
                     <label for="workout_plan_notes" class="label-field">Observações</label>
                     <textarea id="workout_plan_notes" name="notes" rows="3" maxlength="2000" class="input-field"
                               placeholder="Orientações gerais para quem utilizar o treino."></textarea>
@@ -119,6 +132,10 @@
                             if (input) {
                                 input.value = data[key] ?? '';
                             }
+                        });
+
+                        document.querySelectorAll('[data-workout-plan-goal]').forEach(function (checkbox) {
+                            checkbox.checked = (data.goals || []).includes(checkbox.value);
                         });
                     })
                     .catch(function (error) {

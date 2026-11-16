@@ -47,6 +47,10 @@
                     </dd>
                 </div>
                 <div>
+                    <dt class="text-sm text-text-secondary">Função</dt>
+                    <dd class="mt-1 font-medium">{{ $person->job_function_label }}</dd>
+                </div>
+                <div>
                     <dt class="text-sm text-text-secondary">{{ $person->document_label }}</dt>
                     <dd class="mt-1 font-medium">{{ $person->document ?? '—' }}</dd>
                 </div>

@@ -48,6 +48,8 @@ class AssessmentController extends Controller
 
     public function review(Request $request, StudentAssessment $assessment): RedirectResponse
     {
+        abort_unless($request->user()?->canVerifyAssessments(), 403);
+
         $unit = UnitPanelContext::unit($request);
 
         $belongsToUnit = $assessment->student()

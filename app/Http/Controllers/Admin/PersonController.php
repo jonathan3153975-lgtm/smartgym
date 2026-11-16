@@ -89,6 +89,7 @@ class PersonController extends Controller
             'unit_id',
             'person_type',
             'category',
+            'job_function',
             'name',
             'trade_name',
             'document',
@@ -244,6 +245,7 @@ class PersonController extends Controller
             'unit_id' => ['nullable', 'exists:units,id'],
             'person_type' => ['required', Rule::in(['individual', 'company'])],
             'category' => ['required', Rule::in(['staff', 'client'])],
+            'job_function' => ['nullable', Rule::in(array_merge(Person::CLIENT_FUNCTIONS, Person::STAFF_FUNCTIONS))],
             'name' => ['required', 'string', 'max:255'],
             'trade_name' => ['nullable', 'string', 'max:255'],
             'document' => ['required', 'string', 'max:18'],
@@ -266,6 +268,19 @@ class PersonController extends Controller
         ]);
 
         $personType = $validated['person_type'];
+
+        if (! empty($validated['job_function'])
+            && ! in_array($validated['job_function'], Person::functionsForCategory($validated['category']), true)) {
+            throw ValidationException::withMessages([
+                'job_function' => 'A função selecionada não pertence à categoria informada.',
+            ]);
+        }
+
+        if (empty($validated['job_function'])) {
+            $validated['job_function'] = $validated['category'] === 'staff'
+                ? Person::FUNCTION_ADMINISTRATION
+                : Person::FUNCTION_STUDENT;
+        }
 
         if (empty($validated['network_id']) && $person?->network_id) {
             $validated['network_id'] = $person->network_id;

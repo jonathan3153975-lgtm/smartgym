@@ -7,6 +7,7 @@ use App\Models\Permission;
 use App\Models\Person;
 use App\Models\Region;
 use App\Models\Role;
+use App\Models\SaasPlan;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\UserVinculo;
@@ -82,7 +83,6 @@ class AdminOrganizationModulesTest extends TestCase
             '<span>Modalidades</span>',
             '<span>Planos</span>',
             '<span>Turmas</span>',
-            '<span>Alunos</span>',
         ];
 
         $previousPosition = -1;
@@ -94,6 +94,17 @@ class AdminOrganizationModulesTest extends TestCase
             $this->assertGreaterThan($previousPosition, $position, "Item {$item} está fora de ordem.");
             $previousPosition = $position;
         }
+
+        // Alunos was moved from Cadastros to the Gerenciamento submenu.
+        $this->assertSame(1, substr_count($html, '<span>Alunos</span>'));
+        $this->assertGreaterThan(
+            mb_strpos($html, 'aria-label="Submenu Gerenciamento"'),
+            mb_strpos($html, '<span>Alunos</span>')
+        );
+        $this->assertLessThan(
+            mb_strpos($html, 'aria-label="Submenu Cadastros"'),
+            mb_strpos($html, '<span>Alunos</span>')
+        );
 
         $this->assertStringNotContainsString('<span>Redes</span>', $html);
         $this->assertStringNotContainsString('<span>Planos SaaS</span>', $html);
@@ -205,6 +216,95 @@ class AdminOrganizationModulesTest extends TestCase
             ->assertOk();
 
         $this->assertSoftDeleted('units', ['id' => $unit->id]);
+    }
+
+    /** @test */
+    public function test_user_role_must_match_the_selected_scope_level(): void
+    {
+        $network = Network::where('slug', 'smartgym-demo')->firstOrFail();
+        $region = Region::where('network_id', $network->id)->firstOrFail();
+        $unit = Unit::where('network_id', $network->id)->firstOrFail();
+        $person = Person::factory()->staff()->create(['network_id' => $network->id]);
+
+        $networkRole = Role::where('name', 'network_admin')->firstOrFail();
+        $regionRole = Role::where('name', 'region_admin')->firstOrFail();
+        $unitRole = Role::where('name', 'unit_admin')->firstOrFail();
+
+        $this->postJson(route('admin.users.store'), [
+            'person_id' => $person->id,
+            'name' => 'Usuário Perfil Incorreto',
+            'email' => 'perfil.incorreto@smartgym.com.br',
+            'password' => 'Senha12345',
+            'password_confirmation' => 'Senha12345',
+            'network_id' => $network->id,
+            'role_id' => $unitRole->id,
+            'vinculo_status' => 'active',
+        ])->assertStatus(422)->assertJsonValidationErrors('role_id');
+
+        $this->postJson(route('admin.users.store'), [
+            'person_id' => $person->id,
+            'name' => 'Usuário da Unidade',
+            'email' => 'perfil.unidade@smartgym.com.br',
+            'password' => 'Senha12345',
+            'password_confirmation' => 'Senha12345',
+            'network_id' => $network->id,
+            'unit_id' => $unit->id,
+            'role_id' => $unitRole->id,
+            'vinculo_status' => 'active',
+        ])->assertOk()->assertJsonPath('success', true);
+
+        $this->postJson(route('admin.users.store'), [
+            'person_id' => $person->id,
+            'name' => 'Usuário da Região',
+            'email' => 'perfil.regiao@smartgym.com.br',
+            'password' => 'Senha12345',
+            'password_confirmation' => 'Senha12345',
+            'network_id' => $network->id,
+            'region_id' => $region->id,
+            'role_id' => $regionRole->id,
+            'vinculo_status' => 'active',
+        ])->assertOk()->assertJsonPath('success', true);
+
+        $this->postJson(route('admin.users.store'), [
+            'person_id' => $person->id,
+            'name' => 'Usuário da Rede',
+            'email' => 'perfil.rede@smartgym.com.br',
+            'password' => 'Senha12345',
+            'password_confirmation' => 'Senha12345',
+            'network_id' => $network->id,
+            'role_id' => $networkRole->id,
+            'vinculo_status' => 'active',
+        ])->assertOk()->assertJsonPath('success', true);
+    }
+
+    /** @test */
+    public function test_owner_unit_and_region_forms_list_all_accessible_networks(): void
+    {
+        $plan = SaasPlan::where('slug', 'enterprise')->firstOrFail();
+
+        $secondNetwork = Network::create([
+            'name' => 'Rede Secundária',
+            'slug' => 'rede-secundaria-formularios',
+            'document' => '33.444.555/0001-66',
+            'status' => 'active',
+            'plan_id' => $plan->id,
+        ]);
+
+        $unitHtml = $this->get(route('admin.units.index'))->assertOk()->getContent();
+        $unitSelect = preg_match('/id="unit_network_id"[\s\S]*?<\/select>/', $unitHtml, $unitMatches)
+            ? $unitMatches[0]
+            : '';
+
+        $this->assertStringContainsString('SmartGym Demo', $unitSelect);
+        $this->assertStringContainsString($secondNetwork->name, $unitSelect);
+
+        $regionHtml = $this->get(route('admin.regions.index'))->assertOk()->getContent();
+        $regionSelect = preg_match('/id="region_network_id"[\s\S]*?<\/select>/', $regionHtml, $regionMatches)
+            ? $regionMatches[0]
+            : '';
+
+        $this->assertStringContainsString('SmartGym Demo', $regionSelect);
+        $this->assertStringContainsString($secondNetwork->name, $regionSelect);
     }
 
     /** @test */

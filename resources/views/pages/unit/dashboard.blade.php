@@ -70,24 +70,27 @@
                 <p class="py-6 text-center text-sm text-text-secondary">Nenhuma turma programada para hoje.</p>
             @else
                 <div class="space-y-2">
-                    @foreach ($classesToday as $class)
-                        @php($occupied = $bookingsToday->get($class->id)?->count() ?? 0)
+                    @foreach ($classesToday as $schedule)
+                        @php
+                            $class = $schedule->schoolClass;
+                            $occupied = $bookingsToday->get($schedule->id)?->count() ?? 0;
+                        @endphp
                         <div class="flex flex-col gap-2 rounded-xl border border-custom bg-bg-secondary p-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <p class="font-medium">{{ $class->name }}</p>
+                                <p class="font-medium">{{ $class?->name ?? 'Aula' }}</p>
                                 <p class="text-xs text-text-secondary">
-                                    {{ $class->time_label }}
-                                    &middot; {{ $class->modality?->name ?? 'Sem modalidade' }}
-                                    @if ($class->teacher)
-                                        &middot; {{ $class->teacher->name }}
+                                    {{ $schedule->time_label }}
+                                    &middot; {{ $class?->modality?->name ?? 'Sem modalidade' }}
+                                    @if ($schedule->person || $schedule->teacher)
+                                        &middot; {{ $schedule->person?->name ?? $schedule->teacher?->name }}
                                     @endif
                                 </p>
                             </div>
                             <div class="flex items-center gap-2">
-                                <span class="badge {{ $occupied >= $class->vacancies ? 'badge-warning' : 'badge-success' }}">
-                                    {{ $occupied }}/{{ $class->vacancies }} reservas
+                                <span class="badge {{ $occupied >= $schedule->vacancies ? 'badge-warning' : 'badge-success' }}">
+                                    {{ $occupied }}/{{ $schedule->vacancies }} reservas
                                 </span>
-                                <span class="text-xs text-text-secondary">{{ max(0, $class->vacancies - $occupied) }} vagas</span>
+                                <span class="text-xs text-text-secondary">{{ max(0, $schedule->vacancies - $occupied) }} vagas</span>
                             </div>
                         </div>
                     @endforeach

@@ -35,11 +35,18 @@
             'info_soft' => 'Fundo da mensagem de informação',
         ],
     ];
+
+    $colorGroupKeys = [
+        'Estrutura e superfícies' => 'structure',
+        'Textos' => 'texts',
+        'Marca e ações' => 'brand',
+        'Mensagens e estados' => 'messages',
+    ];
 @endphp
 
 <div class="space-y-4">
     @foreach ($colorGroups as $groupLabel => $colorFields)
-        <div class="space-y-2">
+        <div class="space-y-2" data-color-group="{{ $colorGroupKeys[$groupLabel] ?? '' }}">
             <p class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-secondary">
                 {{ $groupLabel }}
             </p>

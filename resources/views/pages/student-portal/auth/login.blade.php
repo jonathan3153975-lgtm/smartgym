@@ -3,6 +3,7 @@
     $logoUrl = \App\Support\NetworkTheme::logoUrl($network) ?: asset('images/logo.png');
     $themeMode = \App\Support\NetworkTheme::mode($network);
     $themeCss = \App\Support\NetworkTheme::css($network);
+    $loginAppearance = \App\Support\NetworkAppearance::login($network);
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -35,9 +36,20 @@
     @if ($themeCss)
         <style id="network-theme">{!! $themeCss !!}</style>
     @endif
+
+    <style>
+        body.student-login {
+            background-color: {{ $loginAppearance['background'] }};
+        }
+
+        .student-login .text-text-secondary {
+            color: {{ $loginAppearance['muted'] }} !important;
+        }
+    </style>
 </head>
-<body class="min-h-screen bg-body text-text-primary">
-    <div class="relative flex min-h-screen items-center justify-center overflow-hidden p-4 sm:p-6">
+<body class="student-login min-h-screen bg-body text-text-primary" style="background-color: {{ $loginAppearance['background'] }};">
+    <div class="relative flex min-h-screen items-center justify-center overflow-hidden p-4 sm:p-6"
+         style="background-color: {{ $loginAppearance['background'] }};">
         <div class="pointer-events-none absolute inset-0"
              style="background:
                 radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--color-primary) 28%, transparent), transparent 34%),
@@ -48,21 +60,22 @@
             {{-- Brand panel --}}
             <div class="relative hidden flex-col justify-between overflow-hidden p-10 lg:flex"
                  style="background:
-                    linear-gradient(145deg, color-mix(in srgb, var(--color-primary) 92%, #000 8%), color-mix(in srgb, var(--color-info) 55%, #000 45%));">
+                    linear-gradient(145deg, {{ $loginAppearance['accent'] }}, color-mix(in srgb, {{ $loginAppearance['accent'] }} 55%, #000 45%));">
                 <div class="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full border border-white/15"></div>
                 <div class="pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full border border-white/10"></div>
 
                 <div class="relative">
                     <img src="{{ $logoUrl }}" alt="{{ $companyName }}"
-                         class="h-20 w-auto max-w-[240px] rounded-2xl bg-white/10 object-contain p-2 backdrop-blur">
+                         class="w-auto max-w-[240px] rounded-2xl bg-white/10 object-contain p-2 backdrop-blur"
+                         style="height: {{ $loginAppearance['logo_height'] }}px;">
                     <p class="mt-6 text-xs font-semibold uppercase tracking-[0.28em] text-white/70">
-                        Portal do aluno
+                        {{ $loginAppearance['eyebrow'] }}
                     </p>
                     <h1 class="mt-3 max-w-sm text-4xl font-black leading-tight text-white">
-                        Seu treino, sua evolução, no seu ritmo.
+                        {{ $loginAppearance['headline'] }}
                     </h1>
                     <p class="mt-4 max-w-sm text-sm leading-relaxed text-white/75">
-                        Acesse seus treinos, acompanhe suas medidas e converse com a equipe da sua unidade.
+                        {{ $loginAppearance['description'] }}
                     </p>
                 </div>
 
@@ -89,16 +102,21 @@
             </div>
 
             {{-- Form panel --}}
-            <div class="flex flex-col justify-center bg-secondary p-6 sm:p-10">
+            <div class="flex flex-col justify-center bg-secondary p-6 sm:p-10"
+                 style="background-color: {{ $loginAppearance['panel'] }}; color: {{ $loginAppearance['text'] }};">
                 <div class="mb-8 text-center lg:text-left">
                     <div class="mb-5 flex justify-center lg:hidden">
                         <img src="{{ $logoUrl }}" alt="{{ $companyName }}"
-                             class="h-20 w-auto max-w-[240px] object-contain">
+                             class="w-auto max-w-[240px] object-contain"
+                             style="height: {{ $loginAppearance['logo_height'] }}px;">
                     </div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan">Acesso do aluno</p>
-                    <h2 class="mt-2 text-3xl font-black tracking-tight">Bem-vindo de volta</h2>
-                    <p class="mt-2 text-sm text-text-secondary">
-                        Entre com seu e-mail e senha para acessar o portal.
+                    <p class="text-xs font-semibold uppercase tracking-[0.24em]" style="color: {{ $loginAppearance['accent'] }};">
+                        {{ $loginAppearance['eyebrow'] }}
+                    </p>
+                    <h2 class="mt-2 text-3xl font-black tracking-tight">{{ $loginAppearance['welcome_title'] }}</h2>
+                    <p class="mt-2 text-sm text-text-secondary"
+                       style="color: {{ $loginAppearance['muted'] }};">
+                        {{ $loginAppearance['welcome_subtitle'] }}
                     </p>
                 </div>
 
@@ -120,7 +138,7 @@
                         <label for="email" class="label-field">E-mail</label>
                         <div class="relative">
                             <i class="fas fa-envelope pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"></i>
-                            <input type="email" id="email" name="email" class="input-field pl-10"
+                            <input type="email" id="email" name="email" class="input-field pl-11"
                                    value="{{ old('email') }}" required autocomplete="email" autofocus
                                    placeholder="seu@email.com">
                         </div>
@@ -130,7 +148,7 @@
                         <label for="password" class="label-field">Senha</label>
                         <div class="relative">
                             <i class="fas fa-lock pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"></i>
-                            <input type="password" id="password" name="password" class="input-field pl-10 pr-12"
+                            <input type="password" id="password" name="password" class="input-field pl-11 pr-12"
                                    required autocomplete="current-password" placeholder="Sua senha">
                             <button type="button"
                                     class="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary transition-colors hover:text-text-primary"
@@ -149,9 +167,10 @@
                         </label>
                     </div>
 
-                    <button type="submit" class="btn-primary w-full py-3 text-base">
+                    <button type="submit" class="btn-primary w-full py-3 text-base"
+                            style="background-color: {{ $loginAppearance['accent'] }};">
                         <i class="fas fa-right-to-bracket mr-2"></i>
-                        Entrar
+                        {{ $loginAppearance['button_text'] }}
                     </button>
                 </form>
 

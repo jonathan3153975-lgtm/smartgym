@@ -426,6 +426,25 @@ class UserController extends Controller
             return;
         }
 
+        $expectedLevel = ! empty($validated['unit_id'])
+            ? 'unit'
+            : (! empty($validated['region_id'])
+                ? 'region'
+                : (! empty($validated['network_id']) ? 'network' : 'platform'));
+
+        if ($role->level !== $expectedLevel) {
+            throw ValidationException::withMessages([
+                'role_id' => 'O perfil selecionado não corresponde ao nível de vínculo informado.',
+            ]);
+        }
+
+        if ($role->network_id !== null
+            && (int) $role->network_id !== (int) ($validated['network_id'] ?? 0)) {
+            throw ValidationException::withMessages([
+                'role_id' => 'O perfil selecionado não pertence à rede do vínculo.',
+            ]);
+        }
+
         if ($tenant->isPlatform()) {
             return;
         }

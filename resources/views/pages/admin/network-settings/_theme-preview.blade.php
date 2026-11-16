@@ -75,8 +75,14 @@
         </span>
     </div>
 
+    {{-- Textos --}}
+    <div data-component-section="texts" class="space-y-1">
+        <p class="text-sm font-semibold">Título de exemplo</p>
+        <p class="tp-muted text-xs leading-relaxed">Texto secundário para descrições, legendas e orientações dentro do sistema.</p>
+    </div>
+
     {{-- Mensagens --}}
-    <div class="space-y-1.5">
+    <div data-component-section="messages" class="space-y-1.5">
         <p class="tp-muted text-[0.6rem] font-semibold uppercase tracking-wider">Mensagens</p>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
             @foreach ($alerts as $alert)
@@ -96,7 +102,7 @@
     </div>
 
     {{-- Card --}}
-    <div class="tp-surface rounded-lg border p-3">
+    <div data-component-section="cards" class="tp-surface rounded-lg border p-3">
         <div class="flex items-start justify-between gap-2">
             <div class="flex min-w-0 items-center gap-2">
                 <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[0.65rem] font-bold"
@@ -112,7 +118,7 @@
             </span>
         </div>
 
-        <div class="mt-3 flex flex-wrap gap-1.5">
+        <div data-component-section="buttons" class="mt-3 flex flex-wrap gap-1.5">
             <button type="button" class="tp-btn" style="background: var(--tp-primary); color: var(--tp-on-primary);">
                 Primário
             </button>
@@ -132,7 +138,7 @@
     </div>
 
     {{-- Badges --}}
-    <div class="flex flex-wrap gap-1.5">
+    <div data-component-section="badges" class="flex flex-wrap gap-1.5">
         <span class="rounded-full px-2 py-0.5 text-[0.62rem] font-semibold"
               style="background: var(--tp-success-soft); color: var(--tp-success);">Sucesso</span>
         <span class="rounded-full px-2 py-0.5 text-[0.62rem] font-semibold"
@@ -145,7 +151,7 @@
     </div>
 
     {{-- Formulário --}}
-    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div data-component-section="forms" class="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div>
             <p class="tp-muted mb-1 text-[0.6rem] font-medium">Campo de texto</p>
             <div class="tp-input">Digite algo...</div>
@@ -178,7 +184,7 @@
     </div>
 
     {{-- Tabela --}}
-    <div class="overflow-hidden rounded-lg border" style="border-color: var(--tp-border);">
+    <div data-component-section="table" class="overflow-hidden rounded-lg border" style="border-color: var(--tp-border);">
         <table class="tp-table w-full text-left text-[0.62rem]">
             <thead>
                 <tr>
@@ -203,7 +209,7 @@
     </div>
 
     {{-- Abas e paginação --}}
-    <div class="flex flex-wrap items-center justify-between gap-2">
+    <div data-component-section="tabs" class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex gap-1">
             <span class="rounded-md border px-2 py-1 text-[0.62rem] font-medium"
                   style="background: var(--tp-surface); border-color: var(--tp-primary); color: var(--tp-primary);">Ativa</span>
@@ -221,7 +227,7 @@
     </div>
 
     {{-- Sobreposição / modal --}}
-    <div class="relative h-20 overflow-hidden rounded-lg border" style="border-color: var(--tp-border); background: var(--tp-surface-elevated);">
+    <div data-component-section="modal" class="relative h-20 overflow-hidden rounded-lg border" style="border-color: var(--tp-border); background: var(--tp-surface-elevated);">
         <div class="absolute inset-0" style="background: color-mix(in srgb, var(--tp-overlay) 82%, transparent);"></div>
         <div class="tp-elevated absolute left-1/2 top-1/2 w-2/3 -translate-x-1/2 -translate-y-1/2 rounded-md border p-2">
             <p class="text-[0.65rem] font-semibold">Modal / dropdown</p>

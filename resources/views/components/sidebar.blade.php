@@ -2,19 +2,62 @@
     $brandLogo = \App\Support\NetworkTheme::logoUrl($activeNetwork ?? null) ?: asset('images/logo.png');
     $brandName = \App\Support\NetworkTheme::companyName($activeNetwork ?? null);
     $tenantContext = \App\Support\TenantContext::current();
+    $sidebarNetwork = $activeNetwork ?? (auth()->check() ? auth()->user()->getActiveVinculo()?->network : null);
+    $menuAppearance = \App\Support\NetworkAppearance::menu($sidebarNetwork);
+    $managementNetwork = auth()->check() ? auth()->user()->getActiveVinculo()?->network : null;
 @endphp
 
 <aside id="sidebar" class="sidebar flex flex-col">
+    <style>
+        #sidebar {
+            background-color: {{ $menuAppearance['sidebar_background'] }};
+        }
+
+        #sidebar .nav-item,
+        #sidebar .nav-subitem,
+        #sidebar .nav-group-toggle {
+            color: {{ $menuAppearance['sidebar_text'] }};
+        }
+
+        #sidebar .nav-item:hover,
+        #sidebar .nav-subitem:hover,
+        #sidebar .nav-group-toggle:hover {
+            background-color: {{ $menuAppearance['hover_background'] }} !important;
+            color: {{ $menuAppearance['hover_text'] }} !important;
+        }
+
+        #sidebar .nav-item[aria-current="page"],
+        #sidebar .nav-item.text-cyan,
+        #sidebar .nav-subitem.text-cyan {
+            background-color: {{ $menuAppearance['active_background'] }} !important;
+            color: {{ $menuAppearance['active_text'] }} !important;
+        }
+
+        #sidebar .nav-item[aria-current="page"] i,
+        #sidebar .nav-item.text-cyan i,
+        #sidebar .nav-subitem.text-cyan i {
+            color: {{ $menuAppearance['active_text'] }} !important;
+        }
+    </style>
+
     {{-- Logo/Brand --}}
-    <div class="flex items-center justify-between h-16 px-4 border-b border-custom">
-        <a href="{{ route('dashboard') }}" class="flex items-center gap-3 min-w-0">
+    <div class="flex items-center justify-between min-h-16 px-4 py-2 border-b"
+         data-brand-bar
+         style="background-color: {{ $menuAppearance['background'] }}; border-color: {{ $menuAppearance['border'] }}; color: {{ $menuAppearance['text'] }};">
+        <a href="{{ route('dashboard') }}"
+           class="flex items-center gap-3 min-w-0 {{ ! $menuAppearance['show_name'] && $menuAppearance['center_logo'] ? 'flex-1 justify-center' : '' }}">
             <img src="{{ $brandLogo }}"
                  alt="{{ $brandName }}"
-                 class="w-10 h-10 rounded-xl object-contain flex-shrink-0 bg-surface-elevated p-1 border border-custom">
-            <span class="text-xl font-bold bg-clip-text text-transparent truncate"
-                  style="background-image: linear-gradient(90deg, var(--color-primary), var(--color-info));">
-                {{ $brandName }}
-            </span>
+                 data-brand-logo
+                 class="rounded-xl object-contain flex-shrink-0 p-1"
+                 style="height: {{ $menuAppearance['logo_height'] }}px; width: auto; max-width: 180px; background: color-mix(in srgb, {{ $menuAppearance['text'] }} 10%, transparent); border: 1px solid color-mix(in srgb, {{ $menuAppearance['text'] }} 12%, transparent);">
+            @if ($menuAppearance['show_name'])
+                <span data-brand-name
+                      class="text-xl font-bold truncate"
+                      style="color: {{ $menuAppearance['text'] }};">
+                    {{ $brandName }}
+                </span>
+            @endif
         </a>
 
         {{-- Mobile close button --}}
@@ -69,6 +112,107 @@
                 <span>Dashboard</span>
             </a>
 
+            {{-- Network overview and settings --}}
+            @can('network.settings')
+                @if ($managementNetwork)
+                    <a href="{{ route('admin.networks.show', $managementNetwork) }}"
+                       class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200 group
+                              {{ request()->routeIs('admin.networks.show') ? 'text-cyan bg-cyan/10' : '' }}">
+                        <i class="fas fa-chart-line w-5 text-center group-hover:text-cyan transition-colors"></i>
+                        <span>Visão geral da rede</span>
+                    </a>
+
+                    <div class="nav-group">
+                        <button type="button"
+                                class="nav-group-toggle w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200"
+                                aria-expanded="{{ request()->routeIs('admin.network.settings.*') ? 'true' : 'false' }}"
+                                aria-controls="networkSettingsSubmenu">
+                            <span class="flex items-center gap-3">
+                                <i class="fas fa-gear w-5 text-center"></i>
+                                <span>Configurações</span>
+                            </span>
+                            <i class="fas fa-chevron-down text-xs transition-transform duration-200"
+                               style="transform: {{ request()->routeIs('admin.network.settings.*') ? 'rotate(180deg)' : 'rotate(0deg)' }};"></i>
+                        </button>
+
+                        <div id="networkSettingsSubmenu"
+                             class="nav-submenu {{ request()->routeIs('admin.network.settings.*') ? '' : 'hidden' }} mt-1 ml-8 space-y-1"
+                             role="region"
+                             aria-label="Submenu Configurações">
+                            <a href="{{ route('admin.network.settings.company') }}"
+                               class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                      {{ request()->routeIs('admin.network.settings.company*') || request()->routeIs('admin.network.settings.edit') ? 'text-cyan bg-cyan/10' : '' }}">
+                                <i class="fas fa-building w-4 text-center"></i>
+                                <span>Dados da empresa</span>
+                            </a>
+
+                            <a href="{{ route('admin.network.settings.policies') }}"
+                               class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                      {{ request()->routeIs('admin.network.settings.policies*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                <i class="fas fa-sitemap w-4 text-center"></i>
+                                <span>Políticas</span>
+                            </a>
+
+                            <a href="{{ route('admin.network.settings.receipts') }}"
+                               class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                      {{ request()->routeIs('admin.network.settings.receipts*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                <i class="fas fa-credit-card w-4 text-center"></i>
+                                <span>Recebimentos</span>
+                            </a>
+
+                            <a href="{{ route('admin.network.settings.appearance') }}"
+                               class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                      {{ request()->routeIs('admin.network.settings.appearance*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                <i class="fas fa-palette w-4 text-center"></i>
+                                <span>Temas e layout</span>
+                            </a>
+                        </div>
+                    </div>
+                @endif
+            @endcan
+
+            {{-- Management --}}
+            @can('students.view')
+                <div class="pt-4 mt-4 border-t border-custom">
+                    <div class="px-3 py-2 text-xs font-medium text-text-secondary uppercase tracking-wider">
+                        Gerenciamento
+                    </div>
+
+                    <div class="nav-group">
+                        <button type="button"
+                                class="nav-group-toggle w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200"
+                                aria-expanded="{{ request()->routeIs('management.*') ? 'true' : 'false' }}"
+                                aria-controls="managementSubmenu">
+                            <span class="flex items-center gap-3">
+                                <i class="fas fa-briefcase w-5 text-center"></i>
+                                <span>Gerenciamento</span>
+                            </span>
+                            <i class="fas fa-chevron-down text-xs transition-transform duration-200"
+                               style="transform: {{ request()->routeIs('management.*') ? 'rotate(180deg)' : 'rotate(0deg)' }};"></i>
+                        </button>
+
+                        <div id="managementSubmenu"
+                             class="nav-submenu {{ request()->routeIs('management.*') ? '' : 'hidden' }} mt-1 ml-8 space-y-1"
+                             role="region"
+                             aria-label="Submenu Gerenciamento">
+                            <a href="{{ route('students.index') }}"
+                               class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                      {{ request()->routeIs('students.*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                <i class="fas fa-user-graduate w-4 text-center"></i>
+                                <span>Alunos</span>
+                            </a>
+
+                            <a href="{{ route('management.cash.index') }}"
+                               class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
+                                      {{ request()->routeIs('management.cash.*') ? 'text-cyan bg-cyan/10' : '' }}">
+                                <i class="fas fa-cash-register w-4 text-center"></i>
+                                <span>Caixa</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            @endcan
+
             {{-- Unit operations panel --}}
             @can('unit.panel')
                 <div class="pt-4 mt-4 border-t border-custom">
@@ -82,38 +226,6 @@
                         <span>Painel da unidade</span>
                     </a>
                 </div>
-            @endcan
-
-            {{-- Network administration --}}
-            @can('network.settings')
-                @php($managementNetwork = auth()->user()->getActiveVinculo()?->network)
-                @if ($managementNetwork)
-                    <div class="pt-4 mt-4 border-t border-custom">
-                        <div class="px-3 py-2 text-xs font-medium text-text-secondary uppercase tracking-wider">
-                            Minha rede
-                        </div>
-
-                        <div class="space-y-1">
-                            <a href="{{ route('admin.dashboard') }}"
-                               class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200 group">
-                                <i class="fas fa-chart-pie w-5 text-center group-hover:text-cyan transition-colors"></i>
-                                <span>Painel da rede</span>
-                            </a>
-
-                            <a href="{{ route('admin.networks.show', $managementNetwork) }}"
-                               class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200 group">
-                                <i class="fas fa-diagram-project w-5 text-center group-hover:text-cyan transition-colors"></i>
-                                <span>Visão da rede</span>
-                            </a>
-
-                            <a href="{{ route('admin.network.settings.edit') }}"
-                               class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200 group">
-                                <i class="fas fa-gear w-5 text-center group-hover:text-cyan transition-colors"></i>
-                                <span>Configurações</span>
-                            </a>
-                        </div>
-                    </div>
-                @endif
             @endcan
 
             {{-- Cadastros --}}
@@ -236,14 +348,6 @@
                                      </a>
                                 @endcan
 
-                                @can('students.view')
-                                    <a href="{{ route('students.index') }}"
-                                       class="nav-subitem flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-all duration-200
-                                              {{ request()->routeIs('students.*') ? 'text-cyan bg-cyan/10' : '' }}">
-                                         <i class="fas fa-user-graduate w-4 text-center"></i>
-                                         <span>Alunos</span>
-                                     </a>
-                                @endcan
                             @endunless
 
                             @if ($tenantContext->isPlatform())

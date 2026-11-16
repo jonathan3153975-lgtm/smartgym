@@ -156,6 +156,9 @@
                                         <a href="{{ route('students.technical-sheet', $student) }}" class="p-2 text-text-secondary hover:text-cyan" title="Ficha técnica">
                                             <i class="fas fa-chart-line"></i>
                                         </a>
+                                        <a href="{{ route('students.contracts', $student) }}" class="p-2 text-text-secondary hover:text-cyan" title="Contratos">
+                                            <i class="fas fa-file-signature"></i>
+                                        </a>
                                         @can('students.edit')
                                             <button type="button" onclick="openStudentModal({{ $student->id }})"
                                                     class="p-2 text-text-secondary hover:text-cyan" title="Editar aluno">

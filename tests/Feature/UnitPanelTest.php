@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\ClassBooking;
+use App\Models\ClassSchedule;
+use App\Models\MembershipPlan;
+use App\Models\Modality;
 use App\Models\Network;
 use App\Models\SchoolClass;
 use App\Models\Student;
@@ -206,7 +209,7 @@ class UnitPanelTest extends TestCase
         $this->actingAs($this->unitAdmin);
 
         $this->post(route('unit.class-bookings.store'), [
-            'class_id' => $class->id,
+            'class_schedule_id' => $class->schedules()->firstOrFail()->id,
             'student_id' => $student->id,
             'type' => 'plan',
         ])->assertRedirect();
@@ -222,7 +225,7 @@ class UnitPanelTest extends TestCase
             ->assertSee('1/1');
 
         $this->post(route('unit.class-bookings.store'), [
-            'class_id' => $class->id,
+            'class_schedule_id' => $class->schedules()->firstOrFail()->id,
             'student_id' => $student->id,
             'type' => 'plan',
         ])->assertRedirect()->assertSessionHasErrors('booking');
@@ -239,6 +242,7 @@ class UnitPanelTest extends TestCase
             'unit_id' => $this->otherUnit->id,
             'student_id' => $otherStudent->id,
             'class_id' => $otherClass->id,
+            'class_schedule_id' => $otherClass->schedules()->first()?->id,
             'status' => ClassBooking::STATUS_PENDING,
             'type' => ClassBooking::TYPE_SINGLE,
             'booked_for' => now()->toDateString(),
@@ -270,7 +274,7 @@ class UnitPanelTest extends TestCase
             'password' => 'SenhaAluno123',
         ])->assertRedirect();
 
-        $this->post(route('student.portal.classes.reserve', [$this->network, $class]))
+        $this->post(route('student.portal.classes.reserve', [$this->network, $class->schedules()->firstOrFail()]))
             ->assertRedirect(route('student.portal.classes.index', $this->network));
 
         $booking = ClassBooking::where('student_id', $student->id)->firstOrFail();
@@ -282,6 +286,78 @@ class UnitPanelTest extends TestCase
             ->assertOk()
             ->assertSee('Aula inclusa')
             ->assertSee('Aula reservada');
+    }
+
+    /** @test */
+    public function test_classes_plan_only_allows_reservations_for_included_modalities(): void
+    {
+        $student = $this->makeStudent($this->unit, ['email' => 'aluno.modalidade@exemplo.com']);
+        $subscription = $this->makeSubscription($student, StudentSubscription::STATUS_ACTIVE);
+
+        $included = Modality::create([
+            'network_id' => $this->network->id,
+            'created_level' => 'network',
+            'name' => 'Pilates',
+        ]);
+
+        $other = Modality::create([
+            'network_id' => $this->network->id,
+            'created_level' => 'network',
+            'name' => 'Boxe',
+        ]);
+
+        $subscription->update([
+            'plan_type' => MembershipPlan::TYPE_CLASSES,
+            'modality_ids' => [$included->id],
+            'daily_checkins' => 1,
+            'checkin_advance_minutes' => 35,
+        ]);
+
+        $includedClass = $this->makeClass($this->unit, [
+            'name' => 'Pilates Incluído',
+            'modality_id' => $included->id,
+            'start_time' => '10:00',
+            'end_time' => '11:00',
+        ]);
+
+        $otherClass = $this->makeClass($this->unit, [
+            'name' => 'Boxe Não Incluído',
+            'modality_id' => $other->id,
+            'start_time' => '12:00',
+            'end_time' => '13:00',
+        ]);
+
+        StudentAccount::create([
+            'network_id' => $this->network->id,
+            'student_id' => $student->id,
+            'email' => $student->email,
+            'password' => 'SenhaAluno123',
+            'must_change_password' => false,
+            'status' => 'active',
+        ]);
+
+        $this->post(route('student.portal.login.store', $this->network), [
+            'email' => $student->email,
+            'password' => 'SenhaAluno123',
+        ])->assertRedirect();
+
+        $this->post(route('student.portal.classes.reserve', [$this->network, $includedClass->schedules()->firstOrFail()]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $booking = ClassBooking::where('class_id', $includedClass->id)->firstOrFail();
+
+        $this->assertSame(35, $booking->early_minutes);
+        $this->assertSame('09:25', $booking->checkin_opens_at->format('H:i'));
+
+        $this->post(route('student.portal.classes.reserve', [$this->network, $otherClass->schedules()->firstOrFail()]))
+            ->assertRedirect(route('student.portal.classes.index', $this->network))
+            ->assertSessionHasErrors('class');
+
+        $this->assertDatabaseMissing('class_bookings', [
+            'student_id' => $student->id,
+            'class_id' => $otherClass->id,
+        ]);
     }
 
     private function makeStudent(Unit $unit, array $attributes = []): Student
@@ -331,6 +407,7 @@ class UnitPanelTest extends TestCase
             'student_id' => $student->id,
             'status' => $status,
             'plan_name' => 'Plano Teste',
+            'plan_type' => MembershipPlan::TYPE_MIXED,
             'price' => 129.90,
             'period' => 'monthly',
             'duration_days' => 30,
@@ -342,16 +419,24 @@ class UnitPanelTest extends TestCase
 
     private function makeClass(Unit $unit, array $attributes = []): SchoolClass
     {
-        return SchoolClass::create(array_merge([
+        $class = SchoolClass::create([
             'network_id' => $this->network->id,
             'unit_id' => $unit->id,
-            'name' => 'Aula '.Str::random(5),
-            'weekday' => now()->dayOfWeek,
-            'start_time' => '07:00',
-            'end_time' => '08:00',
-            'vacancies' => 10,
-            'drop_in_price' => 50,
-            'status' => 'active',
-        ], $attributes));
+            'name' => $attributes['name'] ?? 'Aula '.Str::random(5),
+            'modality_id' => $attributes['modality_id'] ?? null,
+            'drop_in_price' => $attributes['drop_in_price'] ?? 50,
+            'status' => $attributes['status'] ?? 'active',
+        ]);
+
+        ClassSchedule::create([
+            'class_id' => $class->id,
+            'weekday' => $attributes['weekday'] ?? now()->dayOfWeek,
+            'start_time' => $attributes['start_time'] ?? '07:00',
+            'end_time' => $attributes['end_time'] ?? '08:00',
+            'vacancies' => $attributes['vacancies'] ?? 10,
+            'teacher_id' => $attributes['teacher_id'] ?? null,
+        ]);
+
+        return $class;
     }
 }

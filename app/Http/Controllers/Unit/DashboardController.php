@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Unit;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClassBooking;
-use App\Models\SchoolClass;
+use App\Models\ClassSchedule;
 use App\Models\Student;
 use App\Models\StudentCheckin;
 use App\Models\StudentSubscription;
@@ -47,20 +47,21 @@ class DashboardController extends Controller
                 ->count(),
         ];
 
-        $classesToday = SchoolClass::query()
-            ->where('unit_id', $unit->id)
+        $classesToday = ClassSchedule::query()
             ->where('weekday', now()->dayOfWeek)
-            ->where('status', 'active')
-            ->with(['modality:id,name', 'teacher:id,name'])
+            ->whereHas('schoolClass', fn ($query) => $query
+                ->where('unit_id', $unit->id)
+                ->where('status', 'active'))
+            ->with(['schoolClass.modality:id,name', 'person:id,name', 'teacher:id,name'])
             ->orderBy('start_time')
             ->get();
 
         $bookingsToday = ClassBooking::query()
-            ->whereIn('class_id', $classesToday->pluck('id'))
+            ->whereIn('class_schedule_id', $classesToday->pluck('id'))
             ->whereDate('booked_for', now()->toDateString())
             ->whereIn('status', [ClassBooking::STATUS_PENDING, ClassBooking::STATUS_CONFIRMED])
             ->get()
-            ->groupBy('class_id');
+            ->groupBy('class_schedule_id');
 
         $monthStart = now()->startOfMonth();
         $monthEnd = now()->endOfMonth();

@@ -6,13 +6,19 @@ use App\Models\Exercise;
 use App\Models\Network;
 use App\Models\Student;
 use App\Models\StudentAccount;
+use App\Models\WorkoutExercise;
 use App\Models\WorkoutLog;
+use App\Models\WorkoutLogSet;
 use App\Models\WorkoutPlan;
 use App\Models\WorkoutSession;
+use App\Support\StudentExerciseStats;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -38,27 +44,13 @@ class StudentWorkoutController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        $publicPlans = WorkoutPlan::query()
-            ->where('network_id', $network->id)
-            ->where('status', WorkoutPlan::STATUS_ACTIVE)
-            ->where('visibility', WorkoutPlan::VISIBILITY_PUBLIC)
-            ->where(fn ($query) => $query
-                ->whereNull('student_id')
-                ->orWhere('student_id', '!=', $student->id))
-            ->with('student:id,name')
-            ->withCount('sessions')
-            ->orderByDesc('created_at')
-            ->take(12)
-            ->get();
-
         return view('pages.student-portal.workouts.index', compact(
             'network',
             'account',
             'student',
             'plan',
             'inProgress',
-            'myPlans',
-            'publicPlans'
+            'myPlans'
         ));
     }
 
@@ -81,11 +73,16 @@ class StudentWorkoutController extends Controller
             ->latest('started_at')
             ->first();
 
+        $exerciseStats = $account->student
+            ? StudentExerciseStats::for($account->student, $workoutSession->exercises->pluck('exercise_id'))
+            : [];
+
         return view('pages.student-portal.workouts.session', compact(
             'network',
             'account',
             'workoutSession',
-            'inProgress'
+            'inProgress',
+            'exerciseStats'
         ));
     }
 
@@ -140,12 +137,173 @@ class StudentWorkoutController extends Controller
 
         abort_unless($workoutLog->session, 404);
 
+        $exerciseStats = $account->student
+            ? StudentExerciseStats::for($account->student, $workoutLog->session->exercises->pluck('exercise_id'))
+            : [];
+
+        $exerciseCatalog = Exercise::query()
+            ->where('network_id', $network->id)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get();
+
+        $startedExerciseIds = $workoutLog->sets
+            ->pluck('workout_exercise_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
         return view('pages.student-portal.workouts.log', [
             'network' => $network,
             'account' => $account,
             'workoutLog' => $workoutLog,
             'exercises' => $workoutLog->session->exercises,
+            'exerciseStats' => $exerciseStats,
+            'exerciseCatalog' => $exerciseCatalog,
+            'startedExerciseIds' => $startedExerciseIds,
         ]);
+    }
+
+    public function saveProgress(Request $request, Network $network, WorkoutLog $workoutLog): JsonResponse
+    {
+        $account = $this->account($network);
+        $this->ensureLogAccess($workoutLog, $account);
+
+        if ($workoutLog->isCompleted()) {
+            return response()->json(['success' => false, 'message' => 'Treino já concluído.'], 409);
+        }
+
+        $request->merge([
+            'sets' => $this->normalizeSetInputs($request->input('sets', [])),
+        ]);
+
+        $validated = $request->validate([
+            'sets' => ['nullable', 'array'],
+            'sets.*.workout_exercise_id' => ['nullable', 'integer'],
+            'sets.*.exercise_id' => ['nullable', 'integer'],
+            'sets.*.exercise_name' => ['required_with:sets', 'string', 'max:255'],
+            'sets.*.muscle_group' => ['required_with:sets', 'string', 'max:40'],
+            'sets.*.set_number' => ['required_with:sets', 'integer', 'between:1,50'],
+            'sets.*.reps' => ['nullable', 'integer', 'between:0,1000'],
+            'sets.*.weight_kg' => ['nullable', 'numeric', 'between:0,99999.999'],
+            'sets.*.distance_km' => ['nullable', 'numeric', 'between:0,99999.999'],
+            'sets.*.cardio_seconds' => ['nullable', 'integer', 'between:0,86400'],
+            'sets.*.rest_seconds' => ['nullable', 'integer', 'between:0,600'],
+            'sets.*.touched' => ['nullable', 'boolean'],
+            'sets.*.completed' => ['nullable', 'boolean'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $workoutLog->loadMissing('session.exercises.exercise');
+        $plannedExercises = $workoutLog->session?->exercises->keyBy('id') ?? collect();
+
+        $rows = collect($validated['sets'] ?? [])
+            ->filter(fn (array $row) => $this->hasSetData($row) && (int) ($row['touched'] ?? 0) === 1)
+            ->map(function (array $row) use ($plannedExercises) {
+                $planned = $plannedExercises->get((int) ($row['workout_exercise_id'] ?? 0));
+
+                if (! $planned) {
+                    throw ValidationException::withMessages([
+                        'sets' => 'Um dos exercícios registrados não pertence mais a este treino.',
+                    ]);
+                }
+
+                $row['exercise_id'] = $planned->exercise_id;
+                $row['exercise_name'] = $planned->exercise_name;
+                $row['muscle_group'] = $planned->muscle_group;
+                $row['rest_seconds'] = $planned->rest_seconds;
+
+                if ($planned->isCardio()) {
+                    $row['weight_kg'] = null;
+                    $row['reps'] = null;
+                    $row['cardio_seconds'] = $this->resolveCardioSeconds($row, $planned->suggested_load);
+                } else {
+                    $row['distance_km'] = null;
+                    $row['cardio_seconds'] = null;
+                }
+
+                return $row;
+            })
+            ->values();
+
+        DB::transaction(function () use ($workoutLog, $rows, $validated) {
+            $workoutLog->sets()->delete();
+
+            foreach ($rows as $row) {
+                $workoutLog->sets()->create([
+                    'workout_exercise_id' => $row['workout_exercise_id'] ?? null,
+                    'exercise_id' => $row['exercise_id'] ?? null,
+                    'exercise_name' => $row['exercise_name'],
+                    'muscle_group' => $row['muscle_group'],
+                    'set_number' => $row['set_number'],
+                    'reps' => $row['reps'] ?? null,
+                    'weight_kg' => $row['weight_kg'] ?? null,
+                    'distance_km' => $row['distance_km'] ?? null,
+                    'cardio_seconds' => $row['cardio_seconds'] ?? null,
+                    'completed' => (bool) ($row['completed'] ?? false),
+                    'rest_seconds' => $row['rest_seconds'] ?? null,
+                ]);
+            }
+
+            $workoutLog->update([
+                'notes' => $validated['notes'] ?? $workoutLog->notes,
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'count' => $rows->count(),
+            'saved_at' => now()->toIso8601String(),
+        ]);
+    }
+
+    public function replaceExercise(
+        Request $request,
+        Network $network,
+        WorkoutLog $workoutLog,
+        WorkoutExercise $workoutExercise
+    ): RedirectResponse {
+        $account = $this->account($network);
+        $this->ensureLogAccess($workoutLog, $account);
+
+        abort_if($workoutLog->isCompleted(), 403);
+        abort_unless(
+            (int) $workoutExercise->workout_session_id === (int) $workoutLog->workout_session_id,
+            404
+        );
+
+        if ($workoutLog->sets()->where('workout_exercise_id', $workoutExercise->id)->exists()) {
+            return back()->withErrors([
+                'exercise' => 'Conclua ou edite as séries antes de substituir este exercício.',
+            ]);
+        }
+
+        $validated = $request->validate([
+            'exercise_id' => [
+                'required',
+                'integer',
+                Rule::exists('exercises', 'id')
+                    ->where('network_id', $network->id)
+                    ->whereNull('deleted_at'),
+            ],
+        ]);
+
+        $exercise = Exercise::query()
+            ->where('network_id', $network->id)
+            ->whereKey($validated['exercise_id'])
+            ->firstOrFail();
+
+        $workoutExercise->update([
+            'exercise_id' => $exercise->id,
+            'exercise_name' => $exercise->name,
+            'muscle_group' => $exercise->muscle_group,
+            'suggested_load' => null,
+        ]);
+
+        return redirect()
+            ->route('student.portal.workouts.log', [$network, $workoutLog])
+            ->with('success', 'Exercício substituído neste treino.');
     }
 
     public function complete(Request $request, Network $network, WorkoutLog $workoutLog): RedirectResponse
@@ -162,6 +320,10 @@ class StudentWorkoutController extends Controller
             return redirect()->route('student.portal.workouts.history.show', [$network, $workoutLog]);
         }
 
+        $request->merge([
+            'sets' => $this->normalizeSetInputs($request->input('sets', [])),
+        ]);
+
         $validated = $request->validate([
             'sets' => ['nullable', 'array'],
             'sets.*.workout_exercise_id' => ['nullable', 'integer'],
@@ -170,16 +332,21 @@ class StudentWorkoutController extends Controller
             'sets.*.muscle_group' => ['required_with:sets', 'string', 'max:40'],
             'sets.*.set_number' => ['required_with:sets', 'integer', 'between:1,50'],
             'sets.*.reps' => ['nullable', 'integer', 'between:0,1000'],
-            'sets.*.weight_kg' => ['nullable', 'numeric', 'between:0,999.99'],
+            'sets.*.weight_kg' => ['nullable', 'numeric', 'between:0,99999.999'],
+            'sets.*.distance_km' => ['nullable', 'numeric', 'between:0,99999.999'],
+            'sets.*.cardio_seconds' => ['nullable', 'integer', 'between:0,86400'],
             'sets.*.rest_seconds' => ['nullable', 'integer', 'between:0,600'],
+            'sets.*.completed' => ['nullable', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'update_plan' => ['nullable', 'boolean'],
         ]);
 
-        $workoutLog->loadMissing('session.exercises');
+        $workoutLog->loadMissing('session.exercises.exercise');
         $plannedExercises = $workoutLog->session?->exercises->keyBy('id') ?? collect();
 
         $rows = collect($validated['sets'] ?? [])
-            ->filter(fn (array $row) => ($row['reps'] ?? null) !== null || ($row['weight_kg'] ?? null) !== null)
+            ->filter(fn (array $row) => $this->hasSetData($row)
+                && (! array_key_exists('completed', $row) || (int) $row['completed'] === 1))
             ->map(function (array $row) use ($plannedExercises) {
                 $planned = $plannedExercises->get((int) ($row['workout_exercise_id'] ?? 0));
 
@@ -194,17 +361,26 @@ class StudentWorkoutController extends Controller
                 $row['muscle_group'] = $planned->muscle_group;
                 $row['rest_seconds'] = $planned->rest_seconds;
 
+                if ($planned->isCardio()) {
+                    $row['weight_kg'] = null;
+                    $row['reps'] = null;
+                    $row['cardio_seconds'] = $this->resolveCardioSeconds($row, $planned->suggested_load);
+                } else {
+                    $row['distance_km'] = null;
+                    $row['cardio_seconds'] = null;
+                }
+
                 return $row;
             })
             ->values();
 
         if ($rows->isEmpty()) {
             throw ValidationException::withMessages([
-                'sets' => 'Registre ao menos uma série para concluir o treino.',
+                'sets' => 'Marque ao menos uma série como concluída para finalizar o treino.',
             ]);
         }
 
-        DB::transaction(function () use ($workoutLog, $rows, $validated) {
+        DB::transaction(function () use ($workoutLog, $rows, $validated, $plannedExercises) {
             $workoutLog->sets()->delete();
 
             foreach ($rows as $row) {
@@ -214,10 +390,17 @@ class StudentWorkoutController extends Controller
                     'exercise_name' => $row['exercise_name'],
                     'muscle_group' => $row['muscle_group'],
                     'set_number' => $row['set_number'],
-                    'reps' => $row['reps'],
-                    'weight_kg' => $row['weight_kg'],
+                    'reps' => $row['reps'] ?? null,
+                    'weight_kg' => $row['weight_kg'] ?? null,
+                    'distance_km' => $row['distance_km'] ?? null,
+                    'cardio_seconds' => $row['cardio_seconds'] ?? null,
+                    'completed' => true,
                     'rest_seconds' => $row['rest_seconds'] ?? null,
                 ]);
+            }
+
+            if (! empty($validated['update_plan'])) {
+                $this->updatePlanDefinitions($plannedExercises, $rows);
             }
 
             $completedAt = now();
@@ -235,7 +418,7 @@ class StudentWorkoutController extends Controller
             ->with('success', 'Treino concluído! Bons treinos.');
     }
 
-    public function history(Network $network): View|RedirectResponse
+    public function history(Request $request, Network $network): View|RedirectResponse
     {
         $account = $this->account($network);
 
@@ -247,14 +430,33 @@ class StudentWorkoutController extends Controller
 
         abort_unless($student instanceof Student, 403);
 
-        $logs = $student->workoutLogs()
+        $years = $student->workoutLogs()
             ->where('status', WorkoutLog::STATUS_COMPLETED)
-            ->with('sets')
+            ->get(['id', 'started_at'])
+            ->map(fn (WorkoutLog $log) => $log->started_at?->year)
+            ->filter()
+            ->unique()
+            ->sortDesc()
+            ->values();
+
+        $query = $student->workoutLogs()
+            ->where('status', WorkoutLog::STATUS_COMPLETED)
+            ->with('sets');
+
+        if ($request->filled('year')) {
+            $query->whereYear('started_at', (int) $request->input('year'));
+        }
+
+        if ($request->filled('month')) {
+            $query->whereMonth('started_at', (int) $request->input('month'));
+        }
+
+        $logs = $query
             ->orderByDesc('started_at')
             ->paginate(10)
             ->withQueryString();
 
-        return view('pages.student-portal.workouts.history', compact('network', 'account', 'logs'));
+        return view('pages.student-portal.workouts.history', compact('network', 'account', 'logs', 'years'));
     }
 
     public function historyShow(Network $network, WorkoutLog $workoutLog): View|RedirectResponse
@@ -296,32 +498,89 @@ class StudentWorkoutController extends Controller
             fn ($set) => ((int) $set->reps) * ((float) $set->weight_kg)
         ), 2);
 
-        $volumeByMuscle = $allSets
+        $exercisesByMuscle = $allSets
             ->groupBy('muscle_group')
-            ->map(fn ($sets, $group) => [
-                'group' => $group,
-                'label' => Exercise::MUSCLE_GROUPS[$group] ?? $group,
-                'volume' => round($sets->sum(fn ($set) => ((int) $set->reps) * ((float) $set->weight_kg)), 2),
-                'sets' => $sets->count(),
-            ])
-            ->sortByDesc('volume')
+            ->map(function ($sets, $group) use ($allSets) {
+                $totalReps = max(1, (int) $allSets->sum(fn ($set) => (int) $set->reps));
+                $reps = (int) $sets->sum(fn ($set) => (int) $set->reps);
+
+                return [
+                    'group' => $group,
+                    'label' => Exercise::MUSCLE_GROUPS[$group] ?? $group,
+                    'reps' => $reps,
+                    'sets' => $sets->count(),
+                    'exercises' => $sets->pluck('exercise_name')->unique()->count(),
+                    'percent' => (int) round(($reps / $totalReps) * 100),
+                ];
+            })
+            ->sortByDesc('reps')
             ->values();
 
-        $maxMuscleVolume = max(1, (float) ($volumeByMuscle->max('volume') ?? 1));
-
-        $volumeByMuscle = $volumeByMuscle->map(function (array $item) use ($maxMuscleVolume) {
-            $item['percent'] = (int) round(($item['volume'] / $maxMuscleVolume) * 100);
-
-            return $item;
+        $setRows = $logs->flatMap(function (WorkoutLog $log) {
+            return $log->sets->map(fn (WorkoutLogSet $set) => [
+                'set' => $set,
+                'date_key' => $log->started_at->toDateString(),
+                'date' => $log->started_at->format('d/m/Y'),
+            ]);
         });
+
+        $muscleDetails = $setRows
+            ->groupBy(fn ($row) => $row['set']->muscle_group)
+            ->map(function ($rows, $group) {
+                $exercises = $rows
+                    ->groupBy(fn ($row) => $row['set']->exercise_name)
+                    ->map(function ($exerciseRows, $name) {
+                        $evolution = $exerciseRows
+                            ->groupBy('date_key')
+                            ->sortKeys()
+                            ->map(function ($dayRows) {
+                                $maxWeight = (float) $dayRows->max(fn ($row) => (float) $row['set']->weight_kg);
+                                $maxSeconds = (int) $dayRows->max(fn ($row) => (int) $row['set']->cardio_seconds);
+                                $maxDistance = (float) $dayRows->max(fn ($row) => (float) $row['set']->distance_km);
+                                $maxReps = (int) $dayRows->max(fn ($row) => (int) $row['set']->reps);
+
+                                return [
+                                    'date' => $dayRows->first()['date'],
+                                    'weight_label' => $maxWeight > 0 ? number_format($maxWeight, 2, ',', '.').' kg' : null,
+                                    'time_label' => $maxSeconds > 0
+                                        ? sprintf('%d min %02d s', intdiv($maxSeconds, 60), $maxSeconds % 60)
+                                        : null,
+                                    'distance_label' => $maxDistance > 0 ? number_format($maxDistance, 3, ',', '.').' km' : null,
+                                    'reps_label' => $maxReps > 0 ? $maxReps.' reps' : null,
+                                ];
+                            })
+                            ->values();
+
+                        return [
+                            'name' => $name,
+                            'sets' => $exerciseRows->count(),
+                            'evolution' => $evolution,
+                        ];
+                    })
+                    ->sortByDesc('sets')
+                    ->values();
+
+                return [
+                    'group' => $group,
+                    'label' => Exercise::MUSCLE_GROUPS[$group] ?? $group,
+                    'exercises' => $exercises,
+                ];
+            })
+            ->all();
 
         $weeklyFrequency = collect(range(7, 0))->map(function (int $weeksAgo) use ($logs) {
             $start = now()->startOfWeek()->subWeeks($weeksAgo);
             $end = $start->copy()->endOfWeek();
+            $weekLogs = $logs->filter(fn (WorkoutLog $log) => $log->started_at->between($start, $end));
+            $seconds = (int) $weekLogs->sum('duration_seconds');
 
             return [
                 'label' => $start->format('d/m'),
-                'count' => $logs->filter(fn (WorkoutLog $log) => $log->started_at->between($start, $end))->count(),
+                'count' => $weekLogs->count(),
+                'seconds' => $seconds,
+                'hours_label' => $seconds >= 3600
+                    ? sprintf('%dh %02dmin', intdiv($seconds, 3600), intdiv($seconds % 3600, 60))
+                    : sprintf('%dmin', intdiv($seconds, 60)),
             ];
         });
 
@@ -362,10 +621,116 @@ class StudentWorkoutController extends Controller
             'network',
             'account',
             'summary',
-            'volumeByMuscle',
+            'exercisesByMuscle',
+            'muscleDetails',
             'weeklyFrequency',
             'topExercises'
         ));
+    }
+
+    /**
+     * Normalize masked inputs (comma decimals) before validation.
+     *
+     * @param  array<int|string, array<string, mixed>>  $sets
+     * @return array<int|string, array<string, mixed>>
+     */
+    private function normalizeSetInputs(array $sets): array
+    {
+        return collect($sets)
+            ->map(function ($row) {
+                if (! is_array($row)) {
+                    return $row;
+                }
+
+                foreach (['weight_kg', 'distance_km'] as $field) {
+                    $value = $row[$field] ?? null;
+
+                    if (is_string($value) && str_contains($value, ',')) {
+                        $row[$field] = str_replace(['.', ','], ['', '.'], trim($value));
+                    }
+                }
+
+                return $row;
+            })
+            ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function hasSetData(array $row): bool
+    {
+        foreach (['reps', 'weight_kg', 'distance_km', 'cardio_seconds'] as $field) {
+            $value = $row[$field] ?? null;
+
+            if ($value !== null && $value !== '' && (float) $value > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function resolveCardioSeconds(array $row, ?string $plannedLoad): int
+    {
+        $seconds = (int) ($row['cardio_seconds'] ?? 0);
+
+        if ($seconds > 0) {
+            return $seconds;
+        }
+
+        if (is_string($plannedLoad) && preg_match('/^(\d{1,3}):([0-5]\d)$/', trim($plannedLoad), $matches) === 1) {
+            return ((int) $matches[1] * 60) + (int) $matches[2];
+        }
+
+        return 0;
+    }
+
+    /**
+     * Apply the values recorded in the workout log back to the plan exercises.
+     *
+     * @param  Collection<int, WorkoutExercise>  $plannedExercises
+     * @param  Collection<int, array<string, mixed>>  $rows
+     */
+    private function updatePlanDefinitions($plannedExercises, $rows): void
+    {
+        $latestRows = $rows
+            ->filter(fn (array $row) => ! empty($row['workout_exercise_id']))
+            ->groupBy('workout_exercise_id')
+            ->map(fn ($exerciseRows) => $exerciseRows->sortByDesc('set_number')->first());
+
+        foreach ($latestRows as $workoutExerciseId => $row) {
+            $planned = $plannedExercises->get((int) $workoutExerciseId);
+
+            if (! $planned) {
+                continue;
+            }
+
+            $attributes = [];
+
+            if ($planned->isCardio()) {
+                $seconds = (int) ($row['cardio_seconds'] ?? 0);
+
+                if ($seconds > 0) {
+                    $attributes['suggested_load'] = sprintf('%02d:%02d', intdiv($seconds, 60), $seconds % 60);
+                }
+            } else {
+                if (($row['reps'] ?? null) !== null) {
+                    $attributes['reps'] = (int) $row['reps'];
+                }
+
+                if (! $planned->isLoadDisabled() && ($row['weight_kg'] ?? null) !== null) {
+                    $attributes['suggested_load'] = str_replace('.', ',', (string) $row['weight_kg']);
+                }
+            }
+
+            if ($attributes !== []) {
+                $planned->update($attributes);
+            }
+        }
     }
 
     private function activePlan(Student $student): ?WorkoutPlan

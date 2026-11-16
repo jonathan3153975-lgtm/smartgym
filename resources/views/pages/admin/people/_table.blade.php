@@ -35,6 +35,7 @@
                             <span class="badge {{ $person->isStaff() ? 'badge-info' : 'badge-secondary' }} mt-1">
                                 {{ $person->category_label }}
                             </span>
+                            <div class="mt-1 text-xs text-text-secondary">{{ $person->job_function_label }}</div>
                         </td>
                         <td class="text-sm">
                             {{ $person->unit?->name ?? '—' }}

@@ -130,27 +130,29 @@
                                data-cep-field="number">
                     </div>
 
-                    <div class="sm:col-span-2">
+                    <div class="sm:col-span-3">
                         <label for="student_complement" class="label-field">Complemento</label>
                         <input type="text" id="student_complement" name="complement" maxlength="255" class="input-field">
                     </div>
 
-                    <div class="sm:col-span-2">
+                    <div class="sm:col-span-3">
                         <label for="student_neighborhood" class="label-field">Bairro</label>
                         <input type="text" id="student_neighborhood" name="neighborhood" maxlength="255" class="input-field"
                                data-cep-field="neighborhood">
                     </div>
 
-                    <div class="sm:col-span-1">
-                        <label for="student_city" class="label-field">Cidade</label>
-                        <input type="text" id="student_city" name="city" maxlength="255" class="input-field"
-                               data-cep-field="city">
-                    </div>
+                    <div class="grid grid-cols-1 gap-4 sm:col-span-6 sm:grid-cols-4">
+                        <div class="sm:col-span-3">
+                            <label for="student_city" class="label-field">Cidade</label>
+                            <input type="text" id="student_city" name="city" maxlength="255" class="input-field"
+                                   data-cep-field="city">
+                        </div>
 
-                    <div class="sm:col-span-1">
-                        <label for="student_state" class="label-field">UF</label>
-                        <input type="text" id="student_state" name="state" maxlength="2" class="input-field uppercase"
-                               data-cep-field="state">
+                        <div>
+                            <label for="student_state" class="label-field">UF</label>
+                            <input type="text" id="student_state" name="state" maxlength="2" class="input-field uppercase"
+                                   data-cep-field="state">
+                        </div>
                     </div>
                 </div>
             </section>

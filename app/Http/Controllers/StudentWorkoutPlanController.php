@@ -6,7 +6,9 @@ use App\Models\Exercise;
 use App\Models\Network;
 use App\Models\Student;
 use App\Models\StudentAccount;
+use App\Models\StudentAssessment;
 use App\Models\WorkoutPlan;
+use App\Models\WorkoutSession;
 use App\Support\WorkoutPlanCopier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -30,6 +32,8 @@ class StudentWorkoutPlanController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'objective' => ['nullable', 'string', 'max:255'],
+            'goals' => ['nullable', 'array'],
+            'goals.*' => ['string', Rule::in(array_keys(StudentAssessment::GOALS))],
             'notes' => ['nullable', 'string', 'max:2000'],
             'visibility' => ['nullable', Rule::in([WorkoutPlan::VISIBILITY_PRIVATE, WorkoutPlan::VISIBILITY_PUBLIC])],
         ]);
@@ -44,6 +48,7 @@ class StudentWorkoutPlanController extends Controller
             'student_id' => $student->id,
             'name' => $validated['name'],
             'objective' => $validated['objective'] ?? null,
+            'goals' => $validated['goals'] ?? [],
             'notes' => $validated['notes'] ?? null,
             'visibility' => $validated['visibility'] ?? WorkoutPlan::VISIBILITY_PRIVATE,
             'status' => WorkoutPlan::STATUS_ACTIVE,
@@ -54,6 +59,93 @@ class StudentWorkoutPlanController extends Controller
         return redirect()
             ->route('student.portal.workouts.plans.builder', [$network, $plan])
             ->with('success', 'Treino criado. Monte suas sessões e exercícios.');
+    }
+
+    public function search(Request $request, Network $network): JsonResponse
+    {
+        $account = $this->account($network);
+
+        $goal = $request->string('goal')->toString();
+        $muscleGroup = $request->string('muscle_group')->toString();
+        $studentId = (int) $account->student_id;
+
+        $plans = WorkoutPlan::query()
+            ->where('network_id', $network->id)
+            ->where('status', WorkoutPlan::STATUS_ACTIVE)
+            ->where('visibility', WorkoutPlan::VISIBILITY_PUBLIC)
+            ->where(fn ($query) => $query
+                ->whereNull('student_id')
+                ->orWhere('student_id', '!=', $studentId))
+            ->with([
+                'student:id,name',
+                'sessions' => fn ($query) => $query->orderBy('order')->with('exercises'),
+            ])
+            ->withCount('sessions')
+            ->orderByDesc('copies_count')
+            ->orderByDesc('created_at')
+            ->get()
+            ->filter(function (WorkoutPlan $plan) use ($goal, $muscleGroup) {
+                if ($goal && ! in_array($goal, $plan->goals ?? [], true)) {
+                    return false;
+                }
+
+                if ($muscleGroup) {
+                    return $plan->sessions
+                        ->flatMap->exercises
+                        ->contains('muscle_group', $muscleGroup);
+                }
+
+                return true;
+            })
+            ->take(30)
+            ->values();
+
+        return response()->json([
+            'data' => $plans->map(fn (WorkoutPlan $plan) => [
+                'id' => $plan->id,
+                'name' => $plan->name,
+                'objective' => $plan->objective,
+                'author' => $plan->student?->name ? 'Por '.$plan->student->name : 'Treino da equipe',
+                'copies_label' => $plan->copies_label,
+                'sessions_count' => $plan->sessions_count,
+                'goals' => $plan->goal_labels,
+                'sessions' => $plan->sessions->map(fn (WorkoutSession $session) => [
+                    'id' => $session->id,
+                    'name' => $session->name,
+                    'exercises' => $session->exercises->map(fn ($exercise) => [
+                        'id' => $exercise->id,
+                        'name' => $exercise->exercise_name,
+                        'sets' => $exercise->sets,
+                        'reps' => $exercise->reps,
+                    ])->values(),
+                ])->values(),
+            ])->values(),
+        ]);
+    }
+
+    public function destroy(Network $network, WorkoutPlan $workoutPlan): RedirectResponse
+    {
+        $account = $this->account($network);
+        $student = $account->student;
+
+        abort_unless(
+            $student instanceof Student
+            && (int) $workoutPlan->student_id === (int) $student->id
+            && (int) $workoutPlan->network_id === (int) $network->id,
+            404
+        );
+
+        abort_if(
+            $workoutPlan->created_by !== null,
+            403,
+            'Treinos aplicados pela equipe não podem ser excluídos pelo aluno.'
+        );
+
+        $workoutPlan->delete();
+
+        return redirect()
+            ->route('student.portal.workouts.index', $network)
+            ->with('success', 'Treino excluído.');
     }
 
     public function copy(Network $network, WorkoutPlan $workoutPlan): RedirectResponse

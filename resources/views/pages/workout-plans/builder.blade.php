@@ -3,7 +3,7 @@
 @section('title', 'Montar treino - '.$workoutPlan->name)
 
 @section('content')
-<div class="container mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+<div class="container mx-auto max-w-6xl space-y-6 p-2 sm:p-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <a href="{{ $builderRoutes['back'] }}" class="text-sm text-text-secondary transition-colors hover:text-cyan">
@@ -21,6 +21,13 @@
                     &middot; {{ $workoutPlan->objective }}
                 @endif
             </p>
+            @if ($workoutPlan->goal_labels)
+                <div class="mt-2 flex flex-wrap gap-1">
+                    @foreach ($workoutPlan->goal_labels as $goalLabel)
+                        <span class="badge badge-info">{{ $goalLabel }}</span>
+                    @endforeach
+                </div>
+            @endif
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -32,13 +39,6 @@
             @else
                 <span class="badge badge-secondary">Inativo</span>
             @endif
-
-            @if ($canManageVisibility && $visibilityUpdate)
-                <button type="button" onclick="togglePlanVisibility()" class="btn-outline">
-                    <i class="fas fa-eye mr-2"></i>
-                    {{ $workoutPlan->isPublic() ? 'Tornar privado' : 'Tornar público' }}
-                </button>
-            @endif
         </div>
     </div>
 
@@ -46,8 +46,14 @@
         <div class="card whitespace-pre-line text-sm text-text-secondary">{{ $workoutPlan->notes }}</div>
     @endif
 
-    <div class="flex justify-end">
-        <button type="button" onclick="openSessionModal()" class="btn-primary">
+    <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        @if ($canManageVisibility && $visibilityUpdate)
+            <button type="button" onclick="togglePlanVisibility()" class="btn-outline justify-center">
+                <i class="fas fa-eye mr-2"></i>
+                {{ $workoutPlan->isPublic() ? 'Tornar privado' : 'Tornar público' }}
+            </button>
+        @endif
+        <button type="button" onclick="openSessionModal()" class="btn-primary justify-center">
             <i class="fas fa-plus mr-2"></i>
             Adicionar sessão
         </button>
@@ -62,7 +68,7 @@
     @else
         <div class="space-y-5">
             @foreach ($workoutPlan->sessions as $session)
-                <section class="card space-y-4" data-session-card="{{ $session->id }}">
+                <section class="card card-mobile-tight space-y-4" data-session-card="{{ $session->id }}">
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-start">
                         <div class="md:col-span-8">
                             <div class="flex items-center gap-2">
@@ -78,37 +84,45 @@
                             <p class="mt-1 text-xs text-text-secondary">{{ $session->exercises->count() }} exercício(s)</p>
                         </div>
 
-                        <div class="flex w-full flex-col gap-2 md:col-span-4">
-                            <div class="grid grid-cols-2 gap-2">
-                                <button type="button"
-                                        onclick="document.getElementById('session-exercises-{{ $session->id }}').classList.toggle('hidden')"
-                                        class="btn-outline w-full justify-center">
-                                    <i class="fas fa-eye mr-2"></i>
-                                    Visualizar
+                        <div class="flex items-center justify-end gap-1 md:col-span-4">
+                            @if ($session->exercises->count() > 1)
+                                <button type="button" data-toggle-reorder="{{ $session->id }}"
+                                        class="rounded-lg p-2 text-text-secondary transition-colors hover:bg-surface-elevated hover:text-cyan"
+                                        title="Reordenar exercícios" aria-label="Reordenar exercícios">
+                                    <i class="fas fa-sort"></i>
                                 </button>
-                                <button type="button"
-                                        data-edit-session="{{ json_encode([
-                                            'id' => $session->id,
-                                            'name' => $session->name,
-                                            'notes' => $session->notes,
-                                        ]) }}"
-                                        class="btn-outline w-full justify-center">
-                                    <i class="fas fa-edit mr-2"></i>
-                                    Editar
-                                </button>
-                            </div>
-                            <button type="button" onclick="openExerciseModal({{ $session->id }})" class="btn-primary w-full justify-center">
-                                <i class="fas fa-plus mr-2"></i>
-                                Inserir exercícios
+                            @endif
+                            <button type="button"
+                                    onclick="document.getElementById('session-exercises-{{ $session->id }}').classList.toggle('hidden')"
+                                    class="rounded-lg p-2 text-text-secondary transition-colors hover:bg-surface-elevated hover:text-cyan"
+                                    title="Visualizar exercícios" aria-label="Visualizar exercícios">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button type="button"
+                                    data-edit-session="{{ json_encode([
+                                        'id' => $session->id,
+                                        'name' => $session->name,
+                                        'notes' => $session->notes,
+                                    ]) }}"
+                                    class="rounded-lg p-2 text-text-secondary transition-colors hover:bg-surface-elevated hover:text-cyan"
+                                    title="Editar sessão" aria-label="Editar sessão">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" onclick="openExercisePicker({{ $session->id }})"
+                                    class="rounded-lg p-2 text-text-secondary transition-colors hover:bg-surface-elevated hover:text-cyan"
+                                    title="Inserir exercícios" aria-label="Inserir exercícios">
+                                <i class="fas fa-plus"></i>
                             </button>
                         </div>
                     </div>
 
                     <div id="session-exercises-{{ $session->id }}" class="space-y-2" data-exercise-list data-session-id="{{ $session->id }}">
                         @forelse ($session->exercises as $workoutExercise)
-                            <div class="flex items-start gap-3 rounded-xl border border-custom bg-bg-secondary p-3"
+                            <div class="flex items-start gap-2.5 rounded-xl border border-custom bg-bg-secondary p-2 sm:p-3"
                                  draggable="true" data-exercise-row data-id="{{ $workoutExercise->id }}">
-                                <button type="button" class="mt-1 cursor-grab text-text-secondary" title="Arrastar para ordenar">
+                                <button type="button" data-grip style="touch-action: none;"
+                                        class="mt-1 cursor-grab select-none text-text-secondary"
+                                        title="Segure por 1 segundo e arraste para ordenar">
                                     <i class="fas fa-grip-vertical"></i>
                                 </button>
 
@@ -121,14 +135,14 @@
                                     <p class="font-medium">
                                         <span data-order-label>{{ $workoutExercise->order }}.</span>
                                         {{ $workoutExercise->exercise_name }}
-                                        <span class="badge badge-info ml-1">{{ $workoutExercise->muscle_group_label }}</span>
                                     </p>
+                                    <span class="badge badge-info mt-1 inline-block">{{ $workoutExercise->muscle_group_label }}</span>
                                     <p class="mt-1 text-xs text-text-secondary">
                                         {{ $workoutExercise->sets }} séries
                                         &middot; {{ $workoutExercise->reps }} repetições
                                         &middot; descanso {{ $workoutExercise->rest_seconds }}s
                                         @if ($workoutExercise->suggested_load)
-                                            &middot; carga: {{ $workoutExercise->suggested_load }}
+                                            &middot; {{ $workoutExercise->muscle_group === 'cardio' || $workoutExercise->exercise?->equipment === 'cardio' ? 'tempo' : 'carga' }}: {{ $workoutExercise->suggested_load }}
                                         @endif
                                     </p>
                                     @if ($workoutExercise->notes)
@@ -137,6 +151,18 @@
                                 </div>
 
                                 <div class="flex items-center gap-1">
+                                    <div class="hidden items-center gap-1" data-reorder-controls>
+                                        <button type="button" data-move-up
+                                                class="rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-surface-elevated hover:text-cyan disabled:cursor-not-allowed disabled:opacity-30"
+                                                title="Mover para cima" aria-label="Mover para cima">
+                                            <i class="fas fa-arrow-up"></i>
+                                        </button>
+                                        <button type="button" data-move-down
+                                                class="rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-surface-elevated hover:text-cyan disabled:cursor-not-allowed disabled:opacity-30"
+                                                title="Mover para baixo" aria-label="Mover para baixo">
+                                            <i class="fas fa-arrow-down"></i>
+                                        </button>
+                                    </div>
                                     <button type="button"
                                             data-edit-exercise
                                             data-exercise="{{ json_encode([
@@ -145,6 +171,7 @@
                                                 'exerciseId' => $workoutExercise->exercise_id,
                                                 'name' => $workoutExercise->exercise_name,
                                                 'muscleGroup' => $workoutExercise->muscle_group,
+                                                'equipment' => $workoutExercise->exercise?->equipment,
                                                 'sets' => $workoutExercise->sets,
                                                 'reps' => $workoutExercise->reps,
                                                 'rest' => $workoutExercise->rest_seconds,
@@ -221,55 +248,105 @@
     </div>
 </div>
 
-{{-- Exercise modal --}}
-<div id="exerciseModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+{{-- Exercise picker modal --}}
+<div id="exercisePickerModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="exercisePickerTitle">
+    <div class="modal-content modal-content-lg flex max-h-[88vh] flex-col p-3 sm:p-6">
+        <div class="mb-4 flex items-center justify-between">
+            <h2 id="exercisePickerTitle" class="text-xl font-bold">Inserir exercício</h2>
+            <button type="button" onclick="closeExercisePicker()" class="rounded-lg p-2 text-text-secondary hover:bg-surface"
+                    aria-label="Fechar">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+                <label for="picker_equipment" class="label-field">Equipamento</label>
+                <select id="picker_equipment" class="input-field">
+                    <option value="">Todos</option>
+                    @foreach (\App\Models\Exercise::EQUIPMENT_OPTIONS as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label for="picker_group" class="label-field">Grupo muscular</label>
+                <select id="picker_group" class="input-field">
+                    <option value="">Todos</option>
+                    @foreach (\App\Models\Exercise::MUSCLE_GROUPS as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
+        <div class="mt-3">
+            <label for="picker_search" class="label-field">Buscar exercício</label>
+            <input type="search" id="picker_search" class="input-field" placeholder="Digite o nome do exercício"
+                   autocomplete="off">
+        </div>
+
+        <p id="pickerCount" class="mt-2 text-xs text-text-secondary"></p>
+
+        <div id="exercisePickerList" class="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto">
+            @foreach ($exercises as $exercise)
+                <div data-picker-item
+                     data-equipment="{{ $exercise->equipment }}"
+                     data-muscle-group="{{ $exercise->muscle_group }}"
+                     data-name="{{ mb_strtolower($exercise->name) }}"
+                     class="rounded-xl border border-custom bg-bg-secondary p-2 sm:p-2.5">
+                    <div class="flex items-start gap-2.5">
+                        @if ($exercise->image_url)
+                            <img src="{{ $exercise->image_url }}" alt="{{ $exercise->name }}"
+                                 class="h-11 w-11 flex-shrink-0 rounded-lg border border-custom object-cover">
+                        @endif
+
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-medium">{{ $exercise->name }}</p>
+                            <p class="truncate text-xs text-text-secondary">
+                                {{ $exercise->muscle_group_label }} &middot; {{ $exercise->equipment_label }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 flex justify-end">
+                        <button type="button" data-add-exercise="{{ $exercise->id }}"
+                                class="btn-primary p-2" title="Inserir exercício" aria-label="Inserir exercício">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
+        <p id="pickerEmpty" class="hidden py-8 text-center text-sm text-text-secondary">Nenhum exercício encontrado.</p>
+
+        <div class="mt-3 flex justify-end border-t border-custom pt-3">
+            <button type="button" onclick="closeExercisePicker()" class="btn-outline">Fechar</button>
+        </div>
+    </div>
+</div>
+
+{{-- Exercise config modal (edit only) --}}
+<div id="exerciseConfigModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="exerciseConfigTitle">
     <div class="modal-content modal-content-lg">
         <div class="mb-5 flex items-center justify-between">
-            <h2 id="exerciseModalTitle" class="text-xl font-bold">Inserir exercício</h2>
-            <button type="button" onclick="closeExerciseModal()" class="rounded-lg p-2 text-text-secondary hover:bg-surface">
+            <h2 id="exerciseConfigTitle" class="text-xl font-bold">Editar exercício</h2>
+            <button type="button" onclick="closeExerciseConfig()" class="rounded-lg p-2 text-text-secondary hover:bg-surface"
+                    aria-label="Fechar">
                 <i class="fas fa-times"></i>
             </button>
         </div>
 
         <form id="exerciseForm" method="POST" action="" class="space-y-4">
             @csrf
-            <input type="hidden" name="_method" id="exerciseFormMethod" value="POST">
+            <input type="hidden" name="_method" value="PUT">
+            <input type="hidden" name="exercise_id" id="exercise_id" value="">
 
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                    <label for="exercise_equipment_filter" class="label-field">Equipamento</label>
-                    <select id="exercise_equipment_filter" class="input-field">
-                        <option value="">Todos</option>
-                        @foreach (\App\Models\Exercise::EQUIPMENT_OPTIONS as $value => $label)
-                            <option value="{{ $value }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label for="exercise_group_filter" class="label-field">Grupo muscular</label>
-                    <select id="exercise_group_filter" class="input-field">
-                        <option value="">Todos</option>
-                        @foreach (\App\Models\Exercise::MUSCLE_GROUPS as $value => $label)
-                            <option value="{{ $value }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-
-            <div>
-                <label for="exercise_select" class="label-field">Exercício <span class="text-red">*</span></label>
-                <select id="exercise_select" name="exercise_id" required class="input-field">
-                    <option value="">Selecione o exercício</option>
-                    @foreach ($exercises as $exercise)
-                        <option value="{{ $exercise->id }}"
-                                data-muscle-group="{{ $exercise->muscle_group }}"
-                                data-equipment="{{ $exercise->equipment }}"
-                                data-image="{{ $exercise->image_url }}">
-                            {{ $exercise->name }}{{ $exercise->isActive() ? '' : ' (inativo)' }}
-                        </option>
-                    @endforeach
-                </select>
+            <div class="rounded-xl border border-custom bg-bg-secondary p-3">
+                <p id="configExerciseName" class="font-semibold"></p>
+                <p id="configExerciseMeta" class="mt-1 text-xs text-text-secondary"></p>
             </div>
 
             <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
@@ -303,7 +380,7 @@
                             <input type="number" id="exercise_rest" name="rest_seconds" min="0" max="600" value="60" required class="input-field">
                         </div>
                         <div>
-                            <label for="exercise_load" class="label-field">Carga</label>
+                            <label for="exercise_load" id="exercise_load_label" class="label-field">Carga</label>
                             <input type="text" id="exercise_load" name="suggested_load" maxlength="80" class="input-field"
                                    inputmode="decimal" placeholder="0,000" data-decimal-mask="3">
                         </div>
@@ -318,7 +395,7 @@
             </div>
 
             <div class="flex justify-end gap-3 border-t border-custom pt-4">
-                <button type="button" onclick="closeExerciseModal()" class="btn-outline">Cancelar</button>
+                <button type="button" onclick="closeExerciseConfig()" class="btn-outline">Cancelar</button>
                 <button type="submit" class="btn-primary">
                     <i class="fas fa-save mr-2"></i>
                     Salvar exercício
@@ -335,19 +412,32 @@
         const sessionMethod = document.getElementById('sessionFormMethod');
         const sessionTitle = document.getElementById('sessionModalTitle');
         const sessionDeleteBtn = document.getElementById('sessionDeleteBtn');
-        const exerciseModal = document.getElementById('exerciseModal');
+
+        const pickerModal = document.getElementById('exercisePickerModal');
+        const pickerEquipment = document.getElementById('picker_equipment');
+        const pickerGroup = document.getElementById('picker_group');
+        const pickerSearch = document.getElementById('picker_search');
+        const pickerCount = document.getElementById('pickerCount');
+        const pickerEmpty = document.getElementById('pickerEmpty');
+        const pickerItems = Array.from(document.querySelectorAll('[data-picker-item]'));
+
+        const configModal = document.getElementById('exerciseConfigModal');
         const exerciseForm = document.getElementById('exerciseForm');
-        const exerciseMethod = document.getElementById('exerciseFormMethod');
-        const exerciseTitle = document.getElementById('exerciseModalTitle');
-        const exerciseSelect = document.getElementById('exercise_select');
-        const equipmentFilter = document.getElementById('exercise_equipment_filter');
-        const groupFilter = document.getElementById('exercise_group_filter');
+        const configName = document.getElementById('configExerciseName');
+        const configMeta = document.getElementById('configExerciseMeta');
         const imagePreview = document.getElementById('exerciseImagePreview');
         const imagePlaceholder = document.getElementById('exerciseImagePlaceholder');
+        const loadInput = document.getElementById('exercise_load');
+        const loadLabel = document.getElementById('exercise_load_label');
+
         const routes = @json($builderRoutes);
         const csrf = @json(csrf_token());
+        const equipmentLabels = @json(\App\Models\Exercise::EQUIPMENT_OPTIONS);
+        const groupLabels = @json(\App\Models\Exercise::MUSCLE_GROUPS);
 
         let currentSessionId = null;
+        let pickerSessionId = null;
+        let pickerAdded = 0;
 
         window.openSessionModal = function (session = null) {
             sessionForm.reset();
@@ -386,45 +476,212 @@
             form.submit();
         };
 
-        window.openExerciseModal = function (sessionId, exercise = null) {
-            exerciseForm.reset();
-            exerciseTitle.textContent = exercise ? 'Editar exercício' : 'Inserir exercício';
-            exerciseMethod.value = exercise ? 'PUT' : 'POST';
-            exerciseForm.action = exercise
-                ? routes.exerciseUpdate.replace('__ID__', exercise.id)
-                : routes.exerciseStore.replace('__ID__', sessionId);
+        window.openExercisePicker = function (sessionId) {
+            pickerSessionId = sessionId;
+            pickerEquipment.value = '';
+            pickerGroup.value = '';
+            pickerSearch.value = '';
+            applyPickerFilters();
+            pickerModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            setTimeout(function () {
+                pickerSearch.focus();
+            }, 100);
+        };
 
-            equipmentFilter.value = '';
-            groupFilter.value = '';
-            filterBuilderPairs();
-            filterExerciseOptions();
+        window.closeExercisePicker = function () {
+            pickerModal.classList.add('hidden');
+            document.body.style.overflow = '';
 
-            if (exercise) {
-                exerciseSelect.value = exercise.exerciseId ?? '';
-                document.getElementById('exercise_sets').value = exercise.sets ?? 3;
-                document.getElementById('exercise_reps').value = exercise.reps ?? 10;
-                document.getElementById('exercise_rest').value = exercise.rest ?? 60;
-                document.getElementById('exercise_load').value = exercise.load ?? '';
-                document.getElementById('exercise_notes').value = exercise.notes ?? '';
-                showExerciseImage(exercise.image);
-            } else {
-                exerciseSelect.value = '';
-                document.getElementById('exercise_sets').value = 3;
-                document.getElementById('exercise_reps').value = 10;
-                document.getElementById('exercise_rest').value = 60;
-                document.getElementById('exercise_load').value = '';
-                document.getElementById('exercise_notes').value = '';
-                showExerciseImage(null);
+            if (pickerAdded > 0) {
+                window.location.reload();
             }
+        };
 
-            exerciseModal.classList.remove('hidden');
+        function applyPickerFilters() {
+            const equipment = pickerEquipment.value;
+            const group = pickerGroup.value;
+            const term = pickerSearch.value.trim().toLowerCase();
+            let visible = 0;
+
+            pickerItems.forEach(function (item) {
+                const matches = (!equipment || item.dataset.equipment === equipment)
+                    && (!group || item.dataset.muscleGroup === group)
+                    && (!term || item.dataset.name.includes(term));
+
+                item.classList.toggle('hidden', !matches);
+
+                if (matches) {
+                    visible++;
+                }
+            });
+
+            pickerCount.textContent = visible + ' exercício(s)';
+            pickerEmpty.classList.toggle('hidden', visible > 0);
+        }
+
+        [pickerEquipment, pickerGroup].forEach(function (select) {
+            select?.addEventListener('change', applyPickerFilters);
+        });
+
+        pickerSearch?.addEventListener('input', applyPickerFilters);
+
+        document.querySelectorAll('[data-add-exercise]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                if (!pickerSessionId || button.disabled) {
+                    return;
+                }
+
+                const original = button.innerHTML;
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                button.title = 'Inserindo...';
+
+                const body = new FormData();
+                body.append('_token', csrf);
+                body.append('exercise_id', button.dataset.addExercise);
+                body.append('sets', '3');
+                body.append('reps', '10');
+                body.append('rest_seconds', '60');
+
+                fetch(routes.exerciseStore.replace('__ID__', pickerSessionId), {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrf,
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body,
+                }).then(function (response) {
+                    if (!response.ok) {
+                        return response.json().then(function (data) {
+                            throw new Error(data.message || 'Não foi possível inserir o exercício.');
+                        });
+                    }
+
+                    pickerAdded++;
+                    button.classList.remove('btn-primary');
+                    button.classList.add('btn-outline');
+                    button.innerHTML = '<i class="fas fa-check"></i>';
+                    button.title = 'Inserido';
+                }).catch(function (error) {
+                    button.disabled = false;
+                    button.innerHTML = original;
+                    button.title = 'Inserir exercício';
+                    alert(error.message);
+                });
+            });
+        });
+
+        window.openExerciseConfigModal = function (exercise) {
+            exerciseForm.reset();
+            exerciseForm.action = routes.exerciseUpdate.replace('__ID__', exercise.id);
+            document.getElementById('exercise_id').value = exercise.exerciseId ?? '';
+            configName.textContent = exercise.name ?? '';
+            configMeta.textContent = (groupLabels[exercise.muscleGroup] ?? exercise.muscleGroup ?? '')
+                + (exercise.equipment ? ' · ' + (equipmentLabels[exercise.equipment] ?? exercise.equipment) : '');
+
+            applyLoadMode(
+                exercise.equipment,
+                exercise.muscleGroup
+            );
+
+            document.getElementById('exercise_sets').value = exercise.sets ?? 3;
+            document.getElementById('exercise_reps').value = exercise.reps ?? 10;
+            document.getElementById('exercise_rest').value = exercise.rest ?? 60;
+            loadInput.value = exercise.load ?? '';
+            formatMaskedInput(loadInput);
+            document.getElementById('exercise_notes').value = exercise.notes ?? '';
+            showExerciseImage(exercise.image);
+
+            configModal.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
         };
 
-        window.closeExerciseModal = function () {
-            exerciseModal.classList.add('hidden');
+        window.closeExerciseConfig = function () {
+            configModal.classList.add('hidden');
             document.body.style.overflow = '';
         };
+
+        function applyLoadMode(equipment, muscleGroup) {
+            if (!loadInput || !loadLabel) {
+                return;
+            }
+
+            const isCardio = equipment === 'cardio' || muscleGroup === 'cardio';
+            const isNone = equipment === 'none';
+
+            loadInput.dataset.timeMask = '';
+            loadInput.dataset.decimalMask = '3';
+            loadInput.disabled = false;
+            loadInput.maxLength = 80;
+            loadInput.placeholder = '0,000';
+            loadInput.inputMode = 'decimal';
+            loadLabel.textContent = 'Carga';
+
+            if (isNone) {
+                loadInput.value = '';
+                loadInput.disabled = true;
+                loadInput.placeholder = 'Não se aplica';
+                loadLabel.textContent = 'Carga (não se aplica)';
+                return;
+            }
+
+            if (isCardio) {
+                loadInput.value = '';
+                loadInput.dataset.timeMask = '1';
+                loadInput.maxLength = 5;
+                loadInput.placeholder = '00:00';
+                loadInput.inputMode = 'numeric';
+                loadLabel.textContent = 'Tempo (mm:ss)';
+            }
+        }
+
+        function formatMaskedInput(input) {
+            if (!input) {
+                return;
+            }
+
+            let digits = input.value.replace(/\D/g, '');
+
+            if (input.dataset.timeMask === '1') {
+                if (!digits) {
+                    input.value = '';
+                    return;
+                }
+
+                digits = digits.slice(0, 4);
+
+                if (digits.length <= 2) {
+                    input.value = digits;
+                    return;
+                }
+
+                const seconds = digits.slice(-2);
+                const minutes = digits.slice(0, -2);
+
+                input.value = minutes + ':' + seconds;
+
+                return;
+            }
+
+            if (!input.dataset.decimalMask) {
+                return;
+            }
+
+            const decimals = Number(input.dataset.decimalMask || 3);
+            let value = input.value.replace(/\./g, ',').replace(/[^\d,]/g, '');
+            const firstComma = value.indexOf(',');
+
+            if (firstComma !== -1) {
+                const integerPart = value.slice(0, firstComma);
+                const decimalPart = value.slice(firstComma + 1).replace(/,/g, '').slice(0, decimals);
+
+                value = integerPart + ',' + decimalPart;
+            }
+
+            input.value = value;
+        }
 
         function showExerciseImage(url) {
             if (url) {
@@ -438,83 +695,6 @@
             }
         }
 
-        function filterExerciseOptions() {
-            const equipment = equipmentFilter.value;
-            const group = groupFilter.value;
-
-            Array.from(exerciseSelect.options).forEach(function (option) {
-                if (!option.value) {
-                    return;
-                }
-
-                const matchesEquipment = !equipment || option.dataset.equipment === equipment;
-                const matchesGroup = !group || option.dataset.muscleGroup === group;
-                option.hidden = !(matchesEquipment && matchesGroup);
-            });
-
-            if (exerciseSelect.value && exerciseSelect.selectedOptions[0]?.hidden) {
-                exerciseSelect.value = '';
-                showExerciseImage(null);
-            }
-        }
-
-        function filterBuilderPairs() {
-            const equipment = equipmentFilter.value;
-            const group = groupFilter.value;
-
-            const pairs = Array.from(exerciseSelect.options)
-                .filter((option) => option.value)
-                .map((option) => ({ equipment: option.dataset.equipment, group: option.dataset.muscleGroup }));
-
-            const equipmentForGroup = group
-                ? new Set(pairs.filter((pair) => pair.group === group).map((pair) => pair.equipment))
-                : null;
-            const groupsForEquipment = equipment
-                ? new Set(pairs.filter((pair) => pair.equipment === equipment).map((pair) => pair.group))
-                : null;
-
-            Array.from(equipmentFilter.options).forEach(function (option) {
-                if (!option.value) {
-                    return;
-                }
-
-                const matches = !equipmentForGroup || equipmentForGroup.has(option.value);
-                option.hidden = !matches;
-                option.disabled = !matches;
-            });
-
-            Array.from(groupFilter.options).forEach(function (option) {
-                if (!option.value) {
-                    return;
-                }
-
-                const matches = !groupsForEquipment || groupsForEquipment.has(option.value);
-                option.hidden = !matches;
-                option.disabled = !matches;
-            });
-
-            if (equipmentFilter.value && equipmentFilter.selectedOptions[0]?.disabled) {
-                equipmentFilter.value = '';
-            }
-
-            if (groupFilter.value && groupFilter.selectedOptions[0]?.disabled) {
-                groupFilter.value = '';
-            }
-        }
-
-        function applyBuilderFilters() {
-            filterBuilderPairs();
-            filterExerciseOptions();
-        }
-
-        equipmentFilter?.addEventListener('change', applyBuilderFilters);
-        groupFilter?.addEventListener('change', applyBuilderFilters);
-
-        exerciseSelect?.addEventListener('change', function () {
-            const option = this.selectedOptions[0];
-            showExerciseImage(option?.dataset.image || null);
-        });
-
         document.querySelectorAll('[data-edit-session]').forEach(function (button) {
             button.addEventListener('click', function () {
                 window.openSessionModal(JSON.parse(button.dataset.editSession));
@@ -523,12 +703,114 @@
 
         document.querySelectorAll('[data-edit-exercise]').forEach(function (button) {
             button.addEventListener('click', function () {
-                const data = JSON.parse(button.dataset.exercise);
-                window.openExerciseModal(data.sessionId, data);
+                window.openExerciseConfigModal(JSON.parse(button.dataset.exercise));
             });
         });
 
-        // Drag and drop ordering within each session.
+        function submitExerciseOrder(list) {
+            const ids = Array.from(list.querySelectorAll('[data-exercise-row]'))
+                .map((row) => Number(row.dataset.id));
+
+            list.querySelectorAll('[data-exercise-row]').forEach(function (row, index) {
+                const label = row.querySelector('[data-order-label]');
+                if (label) {
+                    label.textContent = (index + 1) + '.';
+                }
+            });
+
+            fetch(routes.exerciseReorder.replace('__ID__', list.dataset.sessionId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ ids }),
+            }).catch(function () {
+                window.location.reload();
+            });
+        }
+
+        function updateMoveButtons(list) {
+            const rows = Array.from(list.querySelectorAll('[data-exercise-row]'));
+
+            rows.forEach(function (row, index) {
+                const up = row.querySelector('[data-move-up]');
+                const down = row.querySelector('[data-move-down]');
+
+                if (up) {
+                    up.disabled = index === 0;
+                }
+
+                if (down) {
+                    down.disabled = index === rows.length - 1;
+                }
+            });
+        }
+
+        document.querySelectorAll('[data-toggle-reorder]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const card = document.querySelector('[data-session-card="' + button.dataset.toggleReorder + '"]');
+
+                if (!card) {
+                    return;
+                }
+
+                const list = card.querySelector('[data-exercise-list]');
+
+                if (!list) {
+                    return;
+                }
+
+                const active = card.dataset.reorderMode === '1';
+                card.dataset.reorderMode = active ? '0' : '1';
+
+                card.querySelectorAll('[data-reorder-controls]').forEach(function (controls) {
+                    controls.classList.toggle('hidden', active);
+                    controls.classList.toggle('flex', !active);
+                });
+
+                button.classList.toggle('bg-surface', !active);
+                button.classList.toggle('text-cyan', !active);
+                button.classList.toggle('text-text-secondary', active);
+
+                updateMoveButtons(list);
+            });
+        });
+
+        document.querySelectorAll('[data-move-up]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const row = button.closest('[data-exercise-row]');
+                const list = row?.parentElement;
+                const previous = row?.previousElementSibling;
+
+                if (!row || !list || !previous || !previous.matches('[data-exercise-row]')) {
+                    return;
+                }
+
+                list.insertBefore(row, previous);
+                updateMoveButtons(list);
+                submitExerciseOrder(list);
+            });
+        });
+
+        document.querySelectorAll('[data-move-down]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const row = button.closest('[data-exercise-row]');
+                const list = row?.parentElement;
+                const next = row?.nextElementSibling;
+
+                if (!row || !list || !next || !next.matches('[data-exercise-row]')) {
+                    return;
+                }
+
+                list.insertBefore(next, row);
+                updateMoveButtons(list);
+                submitExerciseOrder(list);
+            });
+        });
+
+        // Desktop drag and drop ordering within each session.
         document.querySelectorAll('[data-exercise-list]').forEach(function (list) {
             let dragged = null;
 
@@ -553,51 +835,94 @@
 
             list.addEventListener('drop', function (event) {
                 event.preventDefault();
+                submitExerciseOrder(list);
+            });
+        });
 
-                const ids = Array.from(list.querySelectorAll('[data-exercise-row]'))
-                    .map((row) => Number(row.dataset.id));
+        // Touch ordering: hold the handle for one second to start dragging.
+        document.querySelectorAll('[data-exercise-list]').forEach(function (list) {
+            list.querySelectorAll('[data-grip]').forEach(function (grip) {
+                let pressTimer = null;
+                let dragging = null;
+                let pointerId = null;
 
-                list.querySelectorAll('[data-exercise-row]').forEach(function (row, index) {
-                    const label = row.querySelector('[data-order-label]');
-                    if (label) {
-                        label.textContent = (index + 1) + '.';
+                function activate(event) {
+                    dragging = grip.closest('[data-exercise-row]');
+
+                    if (!dragging) {
+                        return;
                     }
+
+                    pointerId = event.pointerId;
+                    dragging.classList.add('ring-2', 'ring-cyan', 'opacity-80', 'relative', 'z-10');
+
+                    try {
+                        grip.setPointerCapture(event.pointerId);
+                    } catch (error) {
+                        // Ignore unsupported pointer capture.
+                    }
+
+                    if (navigator.vibrate) {
+                        navigator.vibrate(30);
+                    }
+                }
+
+                grip.addEventListener('pointerdown', function (event) {
+                    if (event.pointerType === 'mouse') {
+                        return;
+                    }
+
+                    pressTimer = setTimeout(function () {
+                        activate(event);
+                    }, 1000);
                 });
 
-                fetch(routes.exerciseReorder.replace('__ID__', list.dataset.sessionId), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrf,
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({ ids }),
-                }).catch(function () {
-                    window.location.reload();
+                grip.addEventListener('contextmenu', function (event) {
+                    event.preventDefault();
+                });
+
+                ['pointerup', 'pointercancel'].forEach(function (name) {
+                    grip.addEventListener(name, function () {
+                        clearTimeout(pressTimer);
+
+                        if (!dragging) {
+                            return;
+                        }
+
+                        dragging.classList.remove('ring-2', 'ring-cyan', 'opacity-80', 'relative', 'z-10');
+                        dragging = null;
+                        pointerId = null;
+                        submitExerciseOrder(list);
+                    });
+                });
+
+                grip.addEventListener('pointermove', function (event) {
+                    if (!dragging || event.pointerId !== pointerId) {
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    const target = document.elementFromPoint(event.clientX, event.clientY)
+                        ?.closest('[data-exercise-row]');
+
+                    if (target && target !== dragging && target.parentElement === list) {
+                        const rect = target.getBoundingClientRect();
+                        const after = event.clientY > rect.top + rect.height / 2;
+                        list.insertBefore(dragging, after ? target.nextSibling : target);
+                    }
                 });
             });
         });
 
-        // Currency-like mask with 3 decimals (comma as separator).
-        document.querySelectorAll('[data-decimal-mask]').forEach(function (input) {
-            const decimals = Number(input.dataset.decimalMask || 3);
-
-            function formatLoad() {
-                let digits = input.value.replace(/\D/g, '');
-
-                if (digits === '') {
-                    input.value = '';
-                    return;
-                }
-
-                digits = digits.slice(0, 9).padStart(decimals + 1, '0');
-
-                const integerPart = Number(digits.slice(0, -decimals)).toLocaleString('pt-BR');
-                input.value = integerPart + ',' + digits.slice(-decimals);
-            }
-
-            input.addEventListener('input', formatLoad);
-            input.addEventListener('blur', formatLoad);
+        // Mask for decimal loads and cardio time fields.
+        document.querySelectorAll('[data-decimal-mask], #exercise_load').forEach(function (input) {
+            input.addEventListener('input', function () {
+                formatMaskedInput(input);
+            });
+            input.addEventListener('blur', function () {
+                formatMaskedInput(input);
+            });
         });
 
         @if ($canManageVisibility && $visibilityUpdate)
@@ -620,11 +945,30 @@
             }
         });
 
-        exerciseModal?.addEventListener('click', function (event) {
-            if (event.target === exerciseModal) {
-                closeExerciseModal();
+        pickerModal?.addEventListener('click', function (event) {
+            if (event.target === pickerModal) {
+                closeExercisePicker();
+            }
+        });
+
+        configModal?.addEventListener('click', function (event) {
+            if (event.target === configModal) {
+                closeExerciseConfig();
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') {
+                return;
+            }
+
+            if (!pickerModal.classList.contains('hidden')) {
+                closeExercisePicker();
+            } else if (!configModal.classList.contains('hidden')) {
+                closeExerciseConfig();
             }
         });
     })();
+
 </script>
 @endsection

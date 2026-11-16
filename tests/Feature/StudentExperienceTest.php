@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ClassBooking;
+use App\Models\ClassSchedule;
 use App\Models\Exercise;
 use App\Models\MembershipPlan;
 use App\Models\Network;
@@ -134,10 +135,10 @@ class StudentExperienceTest extends TestCase
             'name' => 'Diária avulsa',
             'price' => 39.90,
             'period' => 'daily',
+            'type' => 'basic',
             'weekly_accesses' => 1,
             'daily_checkins' => 1,
             'all_units' => true,
-            'all_modalities' => true,
         ])->assertOk();
 
         $plan = MembershipPlan::where('name', 'Diária avulsa')->firstOrFail();
@@ -178,7 +179,7 @@ class StudentExperienceTest extends TestCase
 
         $this->loginStudent();
 
-        $this->post(route('student.portal.classes.checkout', [$this->network, $class]))
+        $this->post(route('student.portal.classes.checkout', [$this->network, $class->schedules()->firstOrFail()]))
             ->assertRedirect('https://sandbox.mercadopago.com.br/checkout/v1/redirect?pref_id=pref-class-1');
 
         $booking = ClassBooking::firstOrFail();
@@ -217,8 +218,12 @@ class StudentExperienceTest extends TestCase
 
         $this->get(route('student.portal.workouts.index', $this->network))
             ->assertOk()
-            ->assertSee('Treino Público')
-            ->assertSee('Copiar treino');
+            ->assertSee('Meus treinos')
+            ->assertSee('Buscar públicos');
+
+        $this->getJson(route('student.portal.workouts.plans.search', $this->network))
+            ->assertOk()
+            ->assertJsonPath('data.0.name', 'Treino Público');
 
         $this->post(route('student.portal.workouts.plans.copy', [$this->network, $publicPlan]))
             ->assertRedirect();
@@ -322,10 +327,17 @@ class StudentExperienceTest extends TestCase
             ->assertSee('Ficha técnica')
             ->assertSee('Aluno Experiência')
             ->assertSee('Grupos musculares treinados')
-            ->assertSee('Treino Público')
-            ->assertSee('Aplicar treino existente');
+            ->assertSee('Acompanhamento de medidas');
 
-        $this->post(route('students.technical-sheet.apply', $this->student), [
+        $this->get(route('students.workouts', $this->student))
+            ->assertOk()
+            ->assertSee('Treinos aplicados')
+            ->assertSee('Treino do aluno')
+            ->assertSee('Treinos concluídos')
+            ->assertSee('Aplicar treino')
+            ->assertSee('Treino Público');
+
+        $this->post(route('students.workouts.apply', $this->student), [
             'workout_plan_id' => $publicPlan->id,
         ])->assertRedirect();
 
@@ -335,7 +347,7 @@ class StudentExperienceTest extends TestCase
                 ->exists()
         );
 
-        $this->post(route('students.technical-sheet.plan', $this->student), [
+        $this->post(route('students.workouts.plan', $this->student), [
             'name' => 'Treino personalizado novo',
             'objective' => 'Condicionamento',
         ])->assertRedirect();
@@ -416,17 +428,25 @@ class StudentExperienceTest extends TestCase
 
     private function createClass(array $attributes = []): SchoolClass
     {
-        return SchoolClass::create(array_merge([
+        $class = SchoolClass::create([
             'network_id' => $this->network->id,
             'unit_id' => $this->unit->id,
-            'name' => 'Turma de teste',
-            'weekday' => now()->dayOfWeek,
-            'start_time' => '07:00',
-            'end_time' => '08:00',
-            'vacancies' => 10,
-            'drop_in_price' => 50,
-            'status' => 'active',
-        ], $attributes));
+            'name' => $attributes['name'] ?? 'Turma de teste',
+            'modality_id' => $attributes['modality_id'] ?? null,
+            'drop_in_price' => $attributes['drop_in_price'] ?? 50,
+            'status' => $attributes['status'] ?? 'active',
+        ]);
+
+        ClassSchedule::create([
+            'class_id' => $class->id,
+            'weekday' => $attributes['weekday'] ?? now()->dayOfWeek,
+            'start_time' => $attributes['start_time'] ?? '07:00',
+            'end_time' => $attributes['end_time'] ?? '08:00',
+            'vacancies' => $attributes['vacancies'] ?? 10,
+            'teacher_id' => $attributes['teacher_id'] ?? null,
+        ]);
+
+        return $class;
     }
 
     private function createGatewayCredentials(): PaymentGatewaySetting

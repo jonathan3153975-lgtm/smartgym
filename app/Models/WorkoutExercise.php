@@ -41,4 +41,15 @@ class WorkoutExercise extends Model
     {
         return Exercise::MUSCLE_GROUPS[$this->muscle_group] ?? $this->muscle_group;
     }
+
+    public function isCardio(): bool
+    {
+        return $this->muscle_group === 'cardio'
+            || $this->exercise?->equipment === 'cardio';
+    }
+
+    public function isLoadDisabled(): bool
+    {
+        return $this->exercise?->equipment === 'none';
+    }
 }

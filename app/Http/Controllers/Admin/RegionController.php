@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Network;
+use App\Models\PaymentGatewaySetting;
 use App\Models\Region;
+use App\Support\Payments\MercadoPagoCredentials;
+use App\Support\Settings\DayPassPrice;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -15,6 +18,11 @@ use Illuminate\View\View;
 
 class RegionController extends Controller
 {
+    public function __construct(
+        private readonly DayPassPrice $dayPassPrice,
+        private readonly MercadoPagoCredentials $mercadoPago,
+    ) {}
+
     /**
      * Display a listing of the regions.
      */
@@ -136,6 +144,65 @@ class RegionController extends Controller
 
         return redirect()->route('admin.regions.index')
             ->with('success', 'Região atualizada com sucesso.');
+    }
+
+    /**
+     * Display the regional defaults.
+     */
+    public function settings(Region $region): View
+    {
+        abort_unless(TenantContext::current()->canAccessRegion($region), 404);
+
+        $region->load('network');
+
+        $networkPrice = $region->network?->settings[DayPassPrice::KEY] ?? null;
+        $regionPrice = $region->settings[DayPassPrice::KEY] ?? null;
+        $history = $this->dayPassPrice->historyForRegion($region);
+        $mercadoPagoSetting = $region->network
+            ? $this->mercadoPago->forRegion($region->network, $region)
+            : null;
+
+        return view('pages.admin.regions.settings', compact(
+            'region',
+            'networkPrice',
+            'regionPrice',
+            'history',
+            'mercadoPagoSetting'
+        ));
+    }
+
+    /**
+     * Update the regional defaults.
+     */
+    public function updateSettings(Request $request, Region $region): RedirectResponse
+    {
+        abort_unless(TenantContext::current()->canAccessRegion($region), 404);
+
+        $validated = $request->validate([
+            'day_pass_price' => ['nullable', 'numeric', 'min:0', 'max:999999.99'],
+            'mercado_pago_active' => ['nullable', 'boolean'],
+            'mercado_pago_environment' => ['nullable', Rule::in(array_keys(PaymentGatewaySetting::ENVIRONMENTS))],
+            'mercado_pago_public_key' => ['nullable', 'string', 'max:255'],
+            'mercado_pago_access_token' => ['nullable', 'string', 'max:1000'],
+            'mercado_pago_webhook_secret' => ['nullable', 'string', 'max:1000'],
+            'mercado_pago_clear' => ['nullable', 'boolean'],
+        ]);
+
+        $this->dayPassPrice->setRegionPrice(
+            $region,
+            isset($validated['day_pass_price']) && $validated['day_pass_price'] !== ''
+                ? (float) $validated['day_pass_price']
+                : null,
+            auth()->id()
+        );
+
+        if ($region->network) {
+            $this->mercadoPago->save($region->network, null, $validated, $region);
+        }
+
+        return redirect()
+            ->route('admin.regions.settings', $region)
+            ->with('success', 'Configurações da região atualizadas com sucesso.');
     }
 
     /**

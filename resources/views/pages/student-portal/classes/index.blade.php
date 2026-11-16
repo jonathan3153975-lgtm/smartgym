@@ -55,45 +55,49 @@
         </div>
     @endif
 
-    @if ($classes->isEmpty())
+    @if ($schedules->isEmpty())
         <div class="card py-12 text-center">
             <i class="fas fa-calendar-xmark mb-4 text-4xl text-text-secondary"></i>
-            <p class="text-lg font-medium">Nenhuma turma neste dia</p>
+            <p class="text-lg font-medium">Nenhuma aula neste dia</p>
             <p class="mt-1 text-sm text-text-secondary">Escolha outro dia da semana para ver a agenda.</p>
         </div>
     @else
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            @foreach ($classes as $class)
+            @foreach ($schedules as $schedule)
                 @php
-                    $nextDate = $nextDates[$class->id];
-                    $booking = $bookings->get($class->id.'-'.$nextDate->format('Y-m-d'));
+                    $class = $schedule->schoolClass;
+                    $nextDate = $nextDates[$schedule->id];
+                    $booking = $bookings->get($schedule->id.'-'.$nextDate->format('Y-m-d'));
+                    $classSubscription = $activeSubscriptions->first(
+                        fn ($subscription) => $subscription->includesModality($class?->modality_id)
+                    );
                 @endphp
 
                 <article class="card flex flex-col gap-4">
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <p class="text-xs text-text-secondary">{{ $nextDate->format('d/m/Y') }}</p>
-                            <h2 class="mt-1 text-lg font-bold">{{ $class->name }}</h2>
+                            <h2 class="mt-1 text-lg font-bold">{{ $class?->name ?? 'Aula' }}</h2>
                             <p class="mt-1 text-sm text-text-secondary">
-                                {{ $class->modality?->name ?? 'Sem modalidade' }}
-                                &middot; {{ $class->time_label }}
+                                {{ $class?->modality?->name ?? 'Sem modalidade' }}
+                                &middot; {{ $schedule->time_label }}
                             </p>
                         </div>
-                        <span class="badge badge-info whitespace-nowrap">{{ $class->vacancies }} vagas</span>
+                        <span class="badge badge-info whitespace-nowrap">{{ $schedule->vacancies }} vagas</span>
                     </div>
 
                     <div class="space-y-1 text-sm text-text-secondary">
                         <p>
                             <i class="fas fa-building mr-2 w-4 text-center text-cyan"></i>
-                            {{ $class->unit?->name ?? 'Unidade' }}
-                            @if ($class->unit?->city)
+                            {{ $class?->unit?->name ?? 'Unidade' }}
+                            @if ($class?->unit?->city)
                                 &middot; {{ $class->unit->city }}/{{ $class->unit->state }}
                             @endif
                         </p>
-                        @if ($class->teacher)
-                            <p><i class="fas fa-chalkboard-user mr-2 w-4 text-center text-cyan"></i>{{ $class->teacher->name }}</p>
+                        @if ($schedule->person || $schedule->teacher)
+                            <p><i class="fas fa-chalkboard-user mr-2 w-4 text-center text-cyan"></i>{{ $schedule->person?->name ?? $schedule->teacher?->name }}</p>
                         @endif
-                        @if ($class->drop_in_price)
+                        @if ($class?->drop_in_price)
                             <p>
                                 <i class="fas fa-ticket mr-2 w-4 text-center text-cyan"></i>
                                 Aula avulsa: R$ {{ number_format((float) $class->drop_in_price, 2, ',', '.') }}
@@ -109,15 +113,23 @@
                                 {{ $booking->isConfirmed() ? 'Aula reservada' : 'Pagamento pendente' }}
                             </a>
                         @elseif ($activeSubscription)
-                            <form method="POST" action="{{ route('student.portal.classes.reserve', [$network, $class]) }}">
-                                @csrf
-                                <button type="submit" class="btn-primary w-full">
-                                    <i class="fas fa-calendar-check mr-2"></i>
-                                    Reservar aula
-                                </button>
-                            </form>
-                        @elseif ($class->drop_in_price && (float) $class->drop_in_price > 0)
-                            <form method="POST" action="{{ route('student.portal.classes.checkout', [$network, $class]) }}">
+                            @if ($classSubscription)
+                                <form method="POST" action="{{ route('student.portal.classes.reserve', [$network, $schedule]) }}">
+                                    @csrf
+                                    <button type="submit" class="btn-primary w-full">
+                                        <i class="fas fa-calendar-check mr-2"></i>
+                                        Reservar aula
+                                    </button>
+                                </form>
+                            @else
+                                <span class="badge badge-warning block w-full text-center">
+                                    {{ $activeSubscriptions->contains(fn ($subscription) => $subscription->includesClasses())
+                                        ? 'Modalidade não incluída no seu plano'
+                                        : 'Seu plano não inclui aulas' }}
+                                </span>
+                            @endif
+                        @elseif ($class?->drop_in_price && (float) $class->drop_in_price > 0)
+                            <form method="POST" action="{{ route('student.portal.classes.checkout', [$network, $schedule]) }}">
                                 @csrf
                                 <button type="submit" class="btn-primary w-full">
                                     <i class="fas fa-credit-card mr-2"></i>

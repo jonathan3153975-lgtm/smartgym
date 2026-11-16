@@ -66,7 +66,7 @@ class StudentWorkoutPlanBuilderController extends Controller
             ->with('success', 'Sessão removida.');
     }
 
-    public function storeExercise(Request $request, Network $network, WorkoutSession $workoutSession): RedirectResponse
+    public function storeExercise(Request $request, Network $network, WorkoutSession $workoutSession): RedirectResponse|JsonResponse
     {
         $account = $this->account($network);
         $this->ensureSessionAccess($workoutSession, $account);
@@ -78,7 +78,20 @@ class StudentWorkoutPlanBuilderController extends Controller
         $data['exercise_name'] = $exercise['model']->name;
         $data['muscle_group'] = $exercise['model']->muscle_group;
 
-        $workoutSession->exercises()->create($data);
+        $workoutExercise = $workoutSession->exercises()->create($data);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Exercício adicionado à sessão.',
+                'data' => [
+                    'id' => $workoutExercise?->id,
+                    'exercise_id' => $workoutExercise?->exercise_id,
+                    'exercise_name' => $workoutExercise?->exercise_name,
+                    'muscle_group' => $workoutExercise?->muscle_group,
+                ],
+            ]);
+        }
 
         return redirect()
             ->route('student.portal.workouts.plans.builder', [$network, $workoutSession->plan])
@@ -174,6 +187,10 @@ class StudentWorkoutPlanBuilderController extends Controller
         }
 
         $validated['exercise_id'] = $exercise->id;
+
+        if ($exercise->equipment === 'none') {
+            $validated['suggested_load'] = null;
+        }
 
         return ['model' => $exercise, 'data' => $validated];
     }

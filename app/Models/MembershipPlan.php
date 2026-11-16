@@ -30,6 +30,20 @@ class MembershipPlan extends Model
         'annual' => 'Anual',
     ];
 
+    public const TYPE_BASIC = 'basic';
+
+    public const TYPE_CLASSES = 'classes';
+
+    public const TYPE_MIXED = 'mixed';
+
+    public const TYPE_LABELS = [
+        self::TYPE_BASIC => 'Básico',
+        self::TYPE_CLASSES => 'Aulas',
+        self::TYPE_MIXED => 'Misto',
+    ];
+
+    public const DEFAULT_CHECKIN_ADVANCE = 20;
+
     protected $fillable = [
         'network_id',
         'region_id',
@@ -37,11 +51,13 @@ class MembershipPlan extends Model
         'created_level',
         'name',
         'description',
+        'type',
         'price',
         'period',
         'duration_days',
         'weekly_accesses',
         'daily_checkins',
+        'checkin_advance_minutes',
         'all_units',
         'all_modalities',
         'created_by',
@@ -50,6 +66,9 @@ class MembershipPlan extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
+        'weekly_accesses' => 'integer',
+        'daily_checkins' => 'integer',
+        'checkin_advance_minutes' => 'integer',
         'all_units' => 'boolean',
         'all_modalities' => 'boolean',
         'deleted_at' => 'datetime',
@@ -100,22 +119,55 @@ class MembershipPlan extends Model
         return self::PERIOD_LABELS[$this->period] ?? $this->period;
     }
 
+    public function getTypeLabelAttribute(): string
+    {
+        return self::TYPE_LABELS[$this->type] ?? self::TYPE_LABELS[self::TYPE_BASIC];
+    }
+
+    public function isBasic(): bool
+    {
+        return $this->type === self::TYPE_BASIC;
+    }
+
+    public function includesClasses(): bool
+    {
+        return in_array($this->type, [self::TYPE_CLASSES, self::TYPE_MIXED], true);
+    }
+
+    public function getWeeklyAccessLabelAttribute(): string
+    {
+        return $this->type === self::TYPE_CLASSES ? 'dias com aulas por semana' : 'dias de acesso por semana';
+    }
+
+    public function getDailyCheckinLabelAttribute(): string
+    {
+        return $this->type === self::TYPE_CLASSES ? 'aulas por dia' : 'acessos por dia';
+    }
+
     public function getUnitAccessLabelAttribute(): string
     {
         if ($this->all_units) {
             return 'Todas as unidades';
         }
 
-        return $this->units->count().' unidade(s)';
+        $count = $this->units_count ?? $this->units->count();
+
+        return $count.' unidade(s)';
     }
 
     public function getModalityAccessLabelAttribute(): string
     {
+        if ($this->isBasic()) {
+            return 'Acesso à academia';
+        }
+
         if ($this->all_modalities) {
             return 'Todas as modalidades';
         }
 
-        return $this->modalities->count().' modalidade(s)';
+        $count = $this->modalities_count ?? $this->modalities->count();
+
+        return $count.' modalidade(s)';
     }
 
     public static function durationForPeriod(string $period): int

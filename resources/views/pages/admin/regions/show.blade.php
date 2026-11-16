@@ -24,6 +24,12 @@
         </div>
 
         <div class="flex flex-wrap gap-2">
+            @can('units.manage')
+                <a href="{{ route('admin.regions.settings', $region) }}" class="btn-outline">
+                    <i class="fas fa-gear mr-2"></i>
+                    Configurações
+                </a>
+            @endcan
             <button type="button" onclick="openRegionModal({{ $region->id }})" class="btn-outline">
                 <i class="fas fa-edit mr-2"></i>
                 Editar região

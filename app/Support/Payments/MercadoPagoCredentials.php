@@ -4,6 +4,7 @@ namespace App\Support\Payments;
 
 use App\Models\Network;
 use App\Models\PaymentGatewaySetting;
+use App\Models\Region;
 use App\Models\Unit;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
@@ -12,7 +13,10 @@ class MercadoPagoCredentials
 {
     public function forNetwork(Network $network): ?PaymentGatewaySetting
     {
-        return $this->baseQuery($network->id)->whereNull('unit_id')->first();
+        return $this->baseQuery($network->id)
+            ->whereNull('unit_id')
+            ->whereNull('region_id')
+            ->first();
     }
 
     public function forUnit(Network $network, Unit $unit): ?PaymentGatewaySetting
@@ -20,9 +24,16 @@ class MercadoPagoCredentials
         return $this->baseQuery($network->id)->where('unit_id', $unit->id)->first();
     }
 
+    public function forRegion(Network $network, Region $region): ?PaymentGatewaySetting
+    {
+        return $this->baseQuery($network->id)
+            ->whereNull('unit_id')
+            ->where('region_id', $region->id)
+            ->first();
+    }
+
     /**
-     * Unit credentials take precedence; when the unit has none, the network
-     * credentials are used.
+     * Unit credentials take precedence, then region, then network.
      */
     public function resolve(?Network $network, ?Unit $unit): ?PaymentGatewaySetting
     {
@@ -38,38 +49,50 @@ class MercadoPagoCredentials
             }
         }
 
+        $region = $unit?->region;
+
+        if ($region) {
+            $regionSetting = $this->forRegion($network, $region);
+
+            if ($regionSetting?->isUsable()) {
+                return $regionSetting;
+            }
+        }
+
         $networkSetting = $this->forNetwork($network);
 
         return $networkSetting?->isUsable() ? $networkSetting : null;
     }
 
     /**
-     * @return array{unit_configured: bool, network_configured: bool, source: ?string, environment: ?string}
+     * @return array{unit_configured: bool, region_configured: bool, network_configured: bool, source: ?string, environment: ?string}
      */
     public function summary(Network $network, ?Unit $unit): array
     {
         $resolved = $this->resolve($network, $unit);
+        $region = $unit?->region;
 
         return [
             'unit_configured' => $unit ? (bool) $this->forUnit($network, $unit)?->isUsable() : false,
+            'region_configured' => $region ? (bool) $this->forRegion($network, $region)?->isUsable() : false,
             'network_configured' => (bool) $this->forNetwork($network)?->isUsable(),
-            'source' => $resolved ? ($resolved->unit_id ? 'unit' : 'network') : null,
+            'source' => $resolved ? ($resolved->unit_id ? 'unit' : ($resolved->region_id ? 'region' : 'network')) : null,
             'environment' => $resolved?->environment,
         ];
     }
 
     /**
-     * Persist the Mercado Pago credentials of a network or unit.
+     * Persist the Mercado Pago credentials of a network, region or unit.
      *
      * @param  array<string, mixed>  $data
      */
-    public function save(Network $network, ?Unit $unit, array $data): ?PaymentGatewaySetting
+    public function save(Network $network, ?Unit $unit, array $data, ?Region $region = null): ?PaymentGatewaySetting
     {
         if (! $this->hasPaymentFields($data)) {
-            return $this->current($network, $unit);
+            return $this->current($network, $unit, $region);
         }
 
-        $existing = $this->current($network, $unit);
+        $existing = $this->current($network, $unit, $region);
 
         if (! empty($data['mercado_pago_clear'])) {
             $existing?->delete();
@@ -120,6 +143,7 @@ class MercadoPagoCredentials
 
         return PaymentGatewaySetting::create(array_merge([
             'network_id' => $network->id,
+            'region_id' => $region?->id,
             'unit_id' => $unit?->id,
             'provider' => PaymentGatewaySetting::PROVIDER_MERCADO_PAGO,
             'environment' => 'sandbox',
@@ -127,9 +151,17 @@ class MercadoPagoCredentials
         ], $attributes));
     }
 
-    private function current(Network $network, ?Unit $unit): ?PaymentGatewaySetting
+    private function current(Network $network, ?Unit $unit, ?Region $region = null): ?PaymentGatewaySetting
     {
-        return $unit ? $this->forUnit($network, $unit) : $this->forNetwork($network);
+        if ($unit) {
+            return $this->forUnit($network, $unit);
+        }
+
+        if ($region) {
+            return $this->forRegion($network, $region);
+        }
+
+        return $this->forNetwork($network);
     }
 
     private function baseQuery(int $networkId): Builder

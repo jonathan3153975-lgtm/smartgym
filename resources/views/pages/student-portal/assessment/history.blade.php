@@ -3,23 +3,18 @@
 @section('title', 'Histórico de avaliações')
 
 @section('content')
-<div class="mx-auto w-full max-w-4xl space-y-6">
-    <div class="card">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <a href="{{ route('student.portal.assessment.show', $network) }}" class="text-sm text-text-secondary hover:text-cyan">
-                    <i class="fas fa-arrow-left mr-1"></i>
-                    Voltar para a avaliação atual
-                </a>
-                <h1 class="mt-1 text-2xl font-bold">Histórico de avaliações</h1>
-                <p class="mt-1 text-sm text-text-secondary">
-                    Compare sua evolução ao longo do tempo.
-                </p>
-            </div>
+<div class="mx-auto w-full max-w-4xl space-y-5">
+    <div class="flex items-center justify-between gap-2">
+        <h1 class="text-2xl font-bold">Histórico de avaliações</h1>
 
-            <a href="{{ route('student.portal.assessment.create', $network) }}" class="btn-primary self-start sm:self-auto">
-                <i class="fas fa-plus mr-2"></i>
-                Nova reavaliação
+        <div class="flex items-center gap-2">
+            <a href="{{ route('student.portal.assessment.show', $network) }}" class="btn-outline p-2"
+               title="Avaliação atual" aria-label="Avaliação atual">
+                <i class="fas fa-eye"></i>
+            </a>
+            <a href="{{ route('student.portal.assessment.create', $network) }}" class="btn-primary p-2"
+               title="Nova avaliação" aria-label="Nova avaliação">
+                <i class="fas fa-plus"></i>
             </a>
         </div>
     </div>
@@ -34,7 +29,7 @@
             </a>
         </div>
     @else
-        <div class="space-y-3">
+        <div class="-mx-2 space-y-3 sm:mx-0">
             @foreach ($assessments as $historyAssessment)
                 @php
                     $previousAssessment = $assessments->get($loop->index + 1);
@@ -42,10 +37,10 @@
                         ? (float) $historyAssessment->weight_kg - (float) $previousAssessment->weight_kg
                         : null;
                 @endphp
-                <a href="{{ route('student.portal.assessment.show-one', [$network, $historyAssessment]) }}"
-                   class="card block transition-colors hover:border-cyan">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
+
+                <div class="card card-mobile-tight">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
                                 <p class="text-xs text-text-secondary">
                                     {{ $historyAssessment->submitted_at?->format('d/m/Y H:i') ?? '—' }}
@@ -70,21 +65,122 @@
                             </p>
                         </div>
 
-                        <div class="flex items-center gap-3">
-                            @if ($historyDelta !== null)
-                                <div class="text-right">
-                                    <p class="text-xs text-text-secondary">Variação</p>
-                                    <p class="font-semibold {{ $historyDelta > 0 ? 'text-red' : 'text-green' }}">
+                        <div class="ml-auto flex shrink-0 items-center gap-2">
+                            @if ($historyDelta !== null && $previousAssessment)
+                                <button type="button"
+                                        onclick="openAssessmentComparison({{ $historyAssessment->id }})"
+                                        class="rounded-xl border border-custom bg-bg-secondary px-3 py-2 text-right transition-colors hover:border-cyan">
+                                    <span class="block text-xs text-text-secondary">Variação</span>
+                                    <span class="block font-semibold {{ $historyDelta > 0 ? 'text-red' : 'text-green' }}">
                                         {{ $historyDelta > 0 ? '+' : '' }}{{ number_format($historyDelta, 2, ',', '.') }} kg
-                                    </p>
-                                </div>
+                                    </span>
+                                </button>
                             @endif
-                            <i class="fas fa-chevron-right text-text-secondary"></i>
+
+                            <a href="{{ route('student.portal.assessment.show-one', [$network, $historyAssessment]) }}"
+                               class="rounded-lg p-2 text-text-secondary transition-colors hover:bg-surface-elevated hover:text-cyan"
+                               title="Ver ficha completa" aria-label="Ver ficha completa">
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
                         </div>
                     </div>
-                </a>
+                </div>
+
+                @if ($previousAssessment)
+                    <div id="assessmentComparisonModal-{{ $historyAssessment->id }}"
+                         data-assessment-modal="{{ $historyAssessment->id }}"
+                         class="modal-overlay hidden" role="dialog" aria-modal="true"
+                         aria-labelledby="assessmentComparisonTitle-{{ $historyAssessment->id }}">
+                        <div class="modal-content modal-content-lg flex max-h-[85vh] flex-col">
+                            <div class="mb-4 flex items-start justify-between gap-3">
+                                <div>
+                                    <h2 id="assessmentComparisonTitle-{{ $historyAssessment->id }}" class="text-xl font-bold">
+                                        Comparativo de avaliações
+                                    </h2>
+                                    <p class="mt-1 text-xs text-text-secondary">
+                                        {{ $previousAssessment->submitted_at?->format('d/m/Y') ?? '—' }}
+                                        &rarr; {{ $historyAssessment->submitted_at?->format('d/m/Y') ?? '—' }}
+                                    </p>
+                                </div>
+                                <button type="button" onclick="closeAssessmentComparison({{ $historyAssessment->id }})"
+                                        class="rounded-lg p-2 text-text-secondary hover:bg-surface" aria-label="Fechar">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+
+                            <div class="min-h-0 flex-1 overflow-y-auto">
+                                <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                    @foreach (\App\Support\AssessmentMetrics::for($historyAssessment, $previousAssessment) as $metric)
+                                        <div class="rounded-xl border border-custom bg-bg-secondary p-3">
+                                            <p class="text-xs text-text-secondary">{{ $metric['label'] }}</p>
+                                            <p class="mt-1 font-semibold">{{ $metric['value'] }}</p>
+                                            @if ($metric['percent_label'])
+                                                <p class="mt-0.5 text-xs text-text-secondary">
+                                                    @if ($metric['direction'] === 'up')
+                                                        <i class="fas fa-arrow-up mr-1"></i>
+                                                    @elseif ($metric['direction'] === 'down')
+                                                        <i class="fas fa-arrow-down mr-1"></i>
+                                                    @endif
+                                                    {{ $metric['percent_label'] }}
+                                                </p>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <div class="mt-3 flex justify-end border-t border-custom pt-3">
+                                <button type="button" onclick="closeAssessmentComparison({{ $historyAssessment->id }})"
+                                        class="btn-outline">Fechar</button>
+                            </div>
+                        </div>
+                    </div>
+                @endif
             @endforeach
         </div>
     @endif
 </div>
+
+<script>
+    (function () {
+        window.openAssessmentComparison = function (id) {
+            const modal = document.getElementById('assessmentComparisonModal-' + id);
+
+            if (!modal) {
+                return;
+            }
+
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        };
+
+        window.closeAssessmentComparison = function (id) {
+            const modal = document.getElementById('assessmentComparisonModal-' + id);
+
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+
+            document.body.style.overflow = '';
+        };
+
+        document.querySelectorAll('[data-assessment-modal]').forEach(function (modal) {
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal) {
+                    closeAssessmentComparison(modal.dataset.assessmentModal);
+                }
+            });
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') {
+                return;
+            }
+
+            document.querySelectorAll('[data-assessment-modal]:not(.hidden)').forEach(function (modal) {
+                closeAssessmentComparison(modal.dataset.assessmentModal);
+            });
+        });
+    })();
+</script>
 @endsection

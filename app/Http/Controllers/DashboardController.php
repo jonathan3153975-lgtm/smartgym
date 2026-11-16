@@ -2,27 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Dashboard\DashboardMetrics;
+use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
     /**
-     * Display the dashboard.
+     * Display the dashboard for the current access level.
      */
     public function index(Request $request): View
     {
-        // Mock stats for now - will be replaced with real data in Phase 2
-        $stats = [
-            'total_students' => 0,
-            'active_students' => 0,
-            'inactive_students' => 0,
-            'new_this_month' => 0,
-        ];
-
-        // Mock recent students - will be replaced with real data in Phase 2
-        $recentStudents = collect();
-
-        return view('pages.dashboard', compact('stats', 'recentStudents'));
+        return view('pages.dashboard', (new DashboardMetrics($request, TenantContext::current()))->build());
     }
 }

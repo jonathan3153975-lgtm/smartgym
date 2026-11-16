@@ -237,12 +237,16 @@ class StudentMeasurementTest extends TestCase
         ]);
 
         $this->actingAs($this->networkAdmin)
-            ->get(route('students.measurements', $this->student))
+            ->get(route('students.technical-sheet', $this->student))
             ->assertOk()
-            ->assertSee('Medidas corporais')
+            ->assertSee('Acompanhamento de medidas')
             ->assertSee('Aluno Medidas')
-            ->assertSee('80,00 kg')
-            ->assertSee('24,7');
+            ->assertSee('80,00 kg');
+
+        $this->get(route('students.assessment', $this->student))
+            ->assertOk()
+            ->assertSee('Peso atual')
+            ->assertSee('80,00 kg');
 
         $this->get(route('students.show', $this->student))
             ->assertOk()
@@ -267,7 +271,7 @@ class StudentMeasurementTest extends TestCase
         ]);
 
         $this->actingAs($this->networkAdmin)
-            ->get(route('students.measurements', $otherStudent))
+            ->get(route('students.technical-sheet', $otherStudent))
             ->assertNotFound();
     }
 

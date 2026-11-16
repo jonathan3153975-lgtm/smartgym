@@ -359,6 +359,7 @@ body {
 .text-red { color: var(--color-danger); }
 .text-info { color: var(--color-info); }
 .border-custom { border-color: var(--color-border); }
+.divide-custom > :not(:last-child) { border-color: var(--color-border); }
 .border-cyan { border-color: var(--color-info); }
 .border-purple { border-color: var(--color-secondary); }
 .border-info { border-color: var(--color-info); }
@@ -518,27 +519,29 @@ body {
 /* ==========================================================
    FORMULÁRIOS
    ========================================================== */
-.input-field,
-.form-control,
-.form-select {
-    @apply w-full px-4 py-3 rounded-lg transition-all duration-200;
-    background-color: var(--color-bg-secondary);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-primary);
-}
+@layer components {
+    .input-field,
+    .form-control,
+    .form-select {
+        @apply w-full px-4 py-3 rounded-lg transition-all duration-200;
+        background-color: var(--color-bg-secondary);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-primary);
+    }
 
-.input-field:focus,
-.form-control:focus,
-.form-select:focus {
-    background-color: var(--color-surface-elevated);
-    border-color: var(--color-info);
-    box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--color-info) 18%, transparent);
-    outline: none;
-}
+    .input-field:focus,
+    .form-control:focus,
+    .form-select:focus {
+        background-color: var(--color-surface-elevated);
+        border-color: var(--color-info);
+        box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--color-info) 18%, transparent);
+        outline: none;
+    }
 
-.input-field::placeholder,
-.form-control::placeholder {
-    color: var(--bs-tertiary-color);
+    .input-field::placeholder,
+    .form-control::placeholder {
+        color: var(--bs-tertiary-color);
+    }
 }
 
 .form-select option,
@@ -630,6 +633,28 @@ select option {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);
     color: var(--color-text-primary);
+}
+
+/* Tighter lateral padding on phones so nested cards sit closer to the border. */
+.card-mobile-tight {
+    padding-left: 0.375rem;
+    padding-right: 0.375rem;
+}
+
+.set-completed {
+    border-color: var(--color-success) !important;
+}
+
+.set-current {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+@media (min-width: 640px) {
+    .card-mobile-tight {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
 }
 
 .card:hover {
@@ -763,13 +788,20 @@ select option {
 .badge.bg-info { background-color: var(--color-info) !important; color: var(--color-on-info) !important; }
 
 .progress {
+    display: flex;
+    width: 100%;
     background-color: var(--color-border);
     border-radius: 999px;
     overflow: hidden;
 }
 
 .progress-bar {
+    display: block;
+    height: 100%;
+    min-width: 0;
     background-color: var(--color-primary);
+    border-radius: 999px;
+    transition: width 0.3s ease;
 }
 
 /* ==========================================================

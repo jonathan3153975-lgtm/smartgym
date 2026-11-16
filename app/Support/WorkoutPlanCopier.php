@@ -17,10 +17,13 @@ class WorkoutPlanCopier
         return DB::transaction(function () use ($source, $attributes) {
             $source->loadMissing('sessions.exercises');
 
+            $source->increment('copies_count');
+
             $plan = WorkoutPlan::create(array_merge([
                 'network_id' => $source->network_id,
                 'name' => $source->name,
                 'objective' => $source->objective,
+                'goals' => $source->goals ?? [],
                 'notes' => $source->notes,
                 'visibility' => WorkoutPlan::VISIBILITY_PRIVATE,
                 'status' => WorkoutPlan::STATUS_ACTIVE,

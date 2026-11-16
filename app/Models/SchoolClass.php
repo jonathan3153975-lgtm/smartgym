@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SchoolClass extends Model
@@ -26,12 +27,7 @@ class SchoolClass extends Model
         'network_id',
         'unit_id',
         'modality_id',
-        'teacher_id',
         'name',
-        'weekday',
-        'start_time',
-        'end_time',
-        'vacancies',
         'drop_in_price',
         'status',
         'created_by',
@@ -39,8 +35,6 @@ class SchoolClass extends Model
     ];
 
     protected $casts = [
-        'weekday' => 'integer',
-        'vacancies' => 'integer',
         'drop_in_price' => 'decimal:2',
         'deleted_at' => 'datetime',
     ];
@@ -60,9 +54,9 @@ class SchoolClass extends Model
         return $this->belongsTo(Modality::class);
     }
 
-    public function teacher(): BelongsTo
+    public function schedules(): HasMany
     {
-        return $this->belongsTo(User::class, 'teacher_id');
+        return $this->hasMany(ClassSchedule::class, 'class_id')->orderBy('weekday')->orderBy('start_time');
     }
 
     public function createdBy(): BelongsTo
@@ -73,22 +67,6 @@ class SchoolClass extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    public function getWeekdayLabelAttribute(): string
-    {
-        return self::WEEKDAYS[$this->weekday] ?? '—';
-    }
-
-    public function getTimeLabelAttribute(): string
-    {
-        $start = $this->start_time ? substr($this->start_time, 0, 5) : '—';
-
-        if (! $this->end_time) {
-            return $start;
-        }
-
-        return $start.' - '.substr($this->end_time, 0, 5);
     }
 
     public function isActive(): bool

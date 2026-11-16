@@ -3,96 +3,66 @@
 @section('title', 'Minha avaliação')
 
 @section('content')
-<div class="mx-auto w-full max-w-4xl space-y-6">
-    <div class="card">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan">Avaliação inicial</p>
-                <h1 class="mt-1 text-2xl font-bold">Sua ficha de avaliação</h1>
-                <p class="mt-1 text-sm text-text-secondary">
-                    Enviada em {{ $assessment->submitted_at?->format('d/m/Y H:i') ?? '—' }}.
-                </p>
-            </div>
+<div class="mx-auto w-full max-w-4xl space-y-5">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold">Ficha de avaliação</h1>
+            <p class="mt-1 text-sm text-text-secondary">
+                Última avaliação em {{ $assessment->submitted_at?->format('d/m/Y H:i') ?? '—' }}
+            </p>
+        </div>
 
-            <div class="flex flex-wrap items-center gap-2 self-start">
-                <span class="badge badge-success">Concluída</span>
-                <span class="badge badge-info">{{ $totalAssessments }} avaliação(ões)</span>
-                <a href="{{ route('student.portal.assessment.history', $network) }}" class="btn-outline">
-                    <i class="fas fa-clock-rotate-left mr-2"></i>
-                    Histórico
-                </a>
-                <a href="{{ route('student.portal.assessment.create', $network) }}" class="btn-primary">
-                    <i class="fas fa-plus mr-2"></i>
-                    Nova reavaliação
-                </a>
-            </div>
+        <div class="flex items-center gap-2 self-end sm:self-auto">
+            <a href="{{ route('student.portal.assessment.history', $network) }}" class="btn-outline p-2"
+               title="Histórico de avaliações" aria-label="Histórico de avaliações">
+                <i class="fas fa-clock-rotate-left"></i>
+            </a>
+            <a href="{{ route('student.portal.assessment.create', $network) }}" class="btn-primary p-2"
+               title="Nova avaliação" aria-label="Nova avaliação">
+                <i class="fas fa-plus"></i>
+            </a>
         </div>
     </div>
 
-    @if ($comparison)
-        <section class="card space-y-3" style="border-color: var(--color-info);">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <h2 class="flex items-center gap-2 font-semibold">
-                    <i class="fas fa-arrow-trend-up text-cyan"></i>
-                    Comparação com a avaliação anterior
-                </h2>
-                <span class="badge badge-info">{{ $comparison['date']?->format('d/m/Y') }}</span>
+    <section class="-mx-2 card card-mobile-tight space-y-4 sm:mx-0">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+                <h2 class="font-semibold">Última avaliação</h2>
+                <p class="text-xs text-text-secondary">
+                    Alterada em {{ $assessment->submitted_at?->format('d/m/Y H:i') ?? '—' }}
+                </p>
             </div>
+            <div class="flex flex-wrap gap-1">
+                <span class="badge badge-success">Concluída</span>
+                @if ($assessment->reviewed_at)
+                    <span class="badge badge-success">Verificada</span>
+                @else
+                    <span class="badge badge-warning">A verificar</span>
+                @endif
+            </div>
+        </div>
 
-            <div class="grid grid-cols-2 gap-4 text-sm lg:grid-cols-5">
-                <div>
-                    <p class="text-xs text-text-secondary">Peso</p>
-                    <p class="mt-1 font-medium">
-                        @if ($comparison['weight'] !== null)
-                            {{ $comparison['weight'] > 0 ? '+' : '' }}{{ number_format($comparison['weight'], 2, ',', '.') }} kg
-                        @else
-                            —
+        <div class="divide-y divide-custom rounded-xl border border-custom bg-bg-secondary">
+            @foreach ($metrics as $metric)
+                <div class="flex items-center justify-between gap-3 px-3 py-2.5">
+                    <span class="font-semibold text-[19pt] text-text-secondary">{{ $metric['label'] }}</span>
+                    <div class="min-w-0 text-right">
+                        <span class="font-semibold">{{ $metric['value'] }}</span>
+                        @if ($metric['percent_label'])
+                            <span class="block text-xs text-text-secondary">
+                                @if ($metric['direction'] === 'up')
+                                    <i class="fas fa-arrow-up mr-1"></i>
+                                @elseif ($metric['direction'] === 'down')
+                                    <i class="fas fa-arrow-down mr-1"></i>
+                                @endif
+                                {{ $metric['percent_label'] }}
+                            </span>
                         @endif
-                    </p>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-xs text-text-secondary">IMC</p>
-                    <p class="mt-1 font-medium">
-                        @if ($comparison['bmi'] !== null)
-                            {{ $comparison['bmi'] > 0 ? '+' : '' }}{{ number_format($comparison['bmi'], 1, ',', '.') }}
-                        @else
-                            —
-                        @endif
-                    </p>
-                </div>
-                <div>
-                    <p class="text-xs text-text-secondary">Gordura</p>
-                    <p class="mt-1 font-medium">
-                        @if ($comparison['body_fat'] !== null)
-                            {{ $comparison['body_fat'] > 0 ? '+' : '' }}{{ number_format($comparison['body_fat'], 1, ',', '.') }}%
-                        @else
-                            —
-                        @endif
-                    </p>
-                </div>
-                <div>
-                    <p class="text-xs text-text-secondary">Cintura</p>
-                    <p class="mt-1 font-medium">
-                        @if ($comparison['waist'] !== null)
-                            {{ $comparison['waist'] > 0 ? '+' : '' }}{{ number_format($comparison['waist'], 2, ',', '.') }} cm
-                        @else
-                            —
-                        @endif
-                    </p>
-                </div>
-                <div>
-                    <p class="text-xs text-text-secondary">PAR-Q</p>
-                    <p class="mt-1 font-medium">
-                        @if ($comparison['parq_changed'])
-                            {{ $comparison['parq_positive'] ? 'Agora com alerta' : 'Alerta removido' }}
-                        @else
-                            Sem mudança
-                        @endif
-                    </p>
-                </div>
-            </div>
-        </section>
-    @endif
+            @endforeach
+        </div>
+    </section>
 
     @if ($assessment->parq_positive)
         <div class="card" style="border-color: var(--color-warning);">
@@ -109,8 +79,8 @@
         </div>
     @endif
 
-    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <section class="card space-y-3">
+    <div class="-mx-2 grid grid-cols-1 gap-6 sm:mx-0 md:grid-cols-2">
+        <section class="card card-mobile-tight space-y-3">
             <h2 class="flex items-center gap-2 font-semibold">
                 <i class="fas fa-bullseye text-cyan"></i>
                 Objetivo e rotina
@@ -138,7 +108,7 @@
             </dl>
         </section>
 
-        <section class="card space-y-3">
+        <section class="card card-mobile-tight space-y-3">
             <h2 class="flex items-center gap-2 font-semibold">
                 <i class="fas fa-heart-pulse text-cyan"></i>
                 Histórico de saúde
@@ -180,7 +150,7 @@
             </dl>
         </section>
 
-        <section class="card space-y-3 md:col-span-2">
+        <section class="card card-mobile-tight space-y-3 md:col-span-2">
             <h2 class="flex items-center gap-2 font-semibold">
                 <i class="fas fa-clipboard-question text-cyan"></i>
                 Questionário de prontidão
@@ -199,39 +169,7 @@
             </ul>
         </section>
 
-        <section class="card space-y-3 md:col-span-2">
-            <h2 class="flex items-center gap-2 font-semibold">
-                <i class="fas fa-ruler text-cyan"></i>
-                Medidas corporais
-            </h2>
-
-            <div class="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-                <div>
-                    <p class="text-text-secondary">Peso</p>
-                    <p class="mt-1 font-medium">{{ $assessment->weight_kg ? $assessment->weight_kg.' kg' : '—' }}</p>
-                </div>
-                <div>
-                    <p class="text-text-secondary">Altura</p>
-                    <p class="mt-1 font-medium">{{ $assessment->height_cm ? $assessment->height_cm.' cm' : '—' }}</p>
-                </div>
-                <div>
-                    <p class="text-text-secondary">IMC</p>
-                    <p class="mt-1 font-medium">{{ $assessment->bmi ? number_format($assessment->bmi, 1, ',', '.').' kg/m²' : '—' }}</p>
-                </div>
-                <div>
-                    <p class="text-text-secondary">Gordura</p>
-                    <p class="mt-1 font-medium">{{ $assessment->body_fat_percent ? $assessment->body_fat_percent.'%' : '—' }}</p>
-                </div>
-                @foreach (['waist_cm' => 'Cintura', 'hip_cm' => 'Quadril', 'chest_cm' => 'Tórax', 'arm_cm' => 'Braço', 'thigh_cm' => 'Coxa'] as $field => $label)
-                    <div>
-                        <p class="text-text-secondary">{{ $label }}</p>
-                        <p class="mt-1 font-medium">{{ $assessment->{$field} ? $assessment->{$field}.' cm' : '—' }}</p>
-                    </div>
-                @endforeach
-            </div>
-        </section>
-
-        <section class="card space-y-3">
+        <section class="card card-mobile-tight space-y-3">
             <h2 class="flex items-center gap-2 font-semibold">
                 <i class="fas fa-address-book text-cyan"></i>
                 Contato de emergência
@@ -240,7 +178,7 @@
             <p class="text-sm text-text-secondary">{{ $assessment->emergency_contact_phone ?: '—' }}</p>
         </section>
 
-        <section class="card space-y-3">
+        <section class="card card-mobile-tight space-y-3">
             <h2 class="flex items-center gap-2 font-semibold">
                 <i class="fas fa-notes-medical text-cyan"></i>
                 Observações

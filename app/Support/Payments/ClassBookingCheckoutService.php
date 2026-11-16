@@ -3,6 +3,7 @@
 namespace App\Support\Payments;
 
 use App\Models\ClassBooking;
+use App\Models\ClassSchedule;
 use App\Models\PaymentGatewaySetting;
 use App\Models\SchoolClass;
 use App\Models\Student;
@@ -22,11 +23,12 @@ class ClassBookingCheckoutService
      *
      * @return string The Mercado Pago checkout URL.
      */
-    public function start(StudentAccount $account, SchoolClass $class): string
+    public function start(StudentAccount $account, ClassSchedule $classSchedule): string
     {
         $student = $account->student;
+        $class = $classSchedule->schoolClass;
 
-        if (! $student instanceof Student) {
+        if (! $student instanceof Student || ! $class instanceof SchoolClass) {
             throw ValidationException::withMessages([
                 'class' => 'Não foi possível identificar o aluno para esta reserva.',
             ]);
@@ -52,15 +54,15 @@ class ClassBookingCheckoutService
             ]);
         }
 
-        $bookedFor = $this->nextDateForWeekday($class->weekday);
+        $bookedFor = $this->nextDateForWeekday($classSchedule->weekday);
 
         $occupied = ClassBooking::query()
-            ->where('class_id', $class->id)
+            ->where('class_schedule_id', $classSchedule->id)
             ->whereDate('booked_for', $bookedFor->toDateString())
             ->whereIn('status', [ClassBooking::STATUS_PENDING, ClassBooking::STATUS_CONFIRMED])
             ->count();
 
-        if ($occupied >= $class->vacancies) {
+        if ($occupied >= $classSchedule->vacancies) {
             throw ValidationException::withMessages([
                 'class' => 'Esta aula está sem vagas para a data selecionada.',
             ]);
@@ -68,7 +70,7 @@ class ClassBookingCheckoutService
 
         $existing = ClassBooking::query()
             ->where('student_id', $student->id)
-            ->where('class_id', $class->id)
+            ->where('class_schedule_id', $classSchedule->id)
             ->whereDate('booked_for', $bookedFor->toDateString())
             ->first();
 
@@ -86,16 +88,23 @@ class ClassBookingCheckoutService
             ]);
         }
 
-        $booking = DB::transaction(function () use ($existing, $student, $class, $bookedFor, $price, $setting) {
+        $booking = DB::transaction(function () use ($existing, $student, $class, $classSchedule, $bookedFor, $price, $setting) {
+            $start = Carbon::parse($bookedFor->toDateString().' '.$classSchedule->start_time);
+            $earlyMinutes = 20;
+
             $data = [
                 'network_id' => $student->network_id,
                 'unit_id' => $class->unit_id,
                 'student_id' => $student->id,
                 'class_id' => $class->id,
+                'class_schedule_id' => $classSchedule->id,
                 'payment_gateway_setting_id' => $setting->id,
                 'status' => ClassBooking::STATUS_PENDING,
                 'type' => ClassBooking::TYPE_SINGLE,
                 'booked_for' => $bookedFor->toDateString(),
+                'early_minutes' => $earlyMinutes,
+                'checkin_opens_at' => $start->copy()->subMinutes($earlyMinutes),
+                'checkin_closes_at' => $start->copy()->addMinutes(30),
                 'amount' => $price,
                 'paid_at' => null,
                 'gateway_payment_id' => null,
@@ -112,7 +121,7 @@ class ClassBookingCheckoutService
 
         try {
             $preference = MercadoPagoClient::forSetting($setting)
-                ->createPreference($this->preferencePayload($booking, $class, $account, $bookedFor));
+                ->createPreference($this->preferencePayload($booking, $class, $classSchedule, $account, $bookedFor));
 
             $preferenceId = isset($preference['id']) ? (string) $preference['id'] : null;
             $initPoint = $this->initPoint($setting, $preference);
@@ -208,6 +217,7 @@ class ClassBookingCheckoutService
     private function preferencePayload(
         ClassBooking $booking,
         SchoolClass $class,
+        ClassSchedule $classSchedule,
         StudentAccount $account,
         Carbon $bookedFor
     ): array {
@@ -221,7 +231,7 @@ class ClassBookingCheckoutService
                 array_filter([
                     'id' => 'class-'.$class->id,
                     'title' => 'Aula avulsa: '.$class->name,
-                    'description' => $class->unit?->name.' - '.$bookedFor->format('d/m/Y').' '.$class->time_label,
+                    'description' => $class->unit?->name.' - '.$bookedFor->format('d/m/Y').' '.$classSchedule->time_label,
                     'quantity' => 1,
                     'currency_id' => 'BRL',
                     'unit_price' => round((float) $class->drop_in_price, 2),
@@ -245,6 +255,7 @@ class ClassBookingCheckoutService
                 'unit_id' => $booking->unit_id,
                 'student_id' => $booking->student_id,
                 'class_id' => $class->id,
+                'class_schedule_id' => $classSchedule->id,
                 'class_booking_id' => $booking->id,
             ],
         ];

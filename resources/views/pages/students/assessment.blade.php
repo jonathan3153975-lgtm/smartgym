@@ -17,6 +17,10 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('students.assessments.create', $student) }}" class="btn-primary">
+                <i class="fas fa-plus mr-2"></i>
+                Nova avaliação
+            </a>
             @if ($assessment?->isCompleted())
                 <span class="badge badge-success">Concluída</span>
                 @if ($assessment->reviewed_at)
@@ -39,6 +43,43 @@
                 em {{ $assessment->reviewed_at->format('d/m/Y H:i') }}.
             </p>
         @endif
+    </div>
+
+    @php($cards = $bodySummary['cards'])
+
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div class="card">
+            <p class="text-sm text-text-secondary">Peso atual</p>
+            <p class="mt-1 text-2xl font-bold">{{ $cards['weight']['value'] }}</p>
+            @if ($cards['weight']['comparison'])
+                <p class="mt-1 text-xs text-text-secondary">{{ $cards['weight']['comparison'] }}</p>
+            @endif
+            <p class="mt-1 text-xs text-text-secondary">{{ $cards['weight']['meta'] }}</p>
+        </div>
+
+        <div class="card">
+            <p class="text-sm text-text-secondary">Variação total</p>
+            <p class="mt-1 text-2xl font-bold">{{ $cards['total']['value'] }}</p>
+            <p class="mt-1 text-xs text-text-secondary">{{ $cards['total']['meta'] }}</p>
+        </div>
+
+        <div class="card">
+            <p class="text-sm text-text-secondary">IMC</p>
+            <p class="mt-1 text-2xl font-bold">{{ $cards['bmi']['value'] }}</p>
+            @if ($cards['bmi']['comparison'])
+                <p class="mt-1 text-xs text-text-secondary">{{ $cards['bmi']['comparison'] }}</p>
+            @endif
+            <p class="mt-1 text-xs text-text-secondary">{{ $cards['bmi']['meta'] }}</p>
+        </div>
+
+        <div class="card">
+            <p class="text-sm text-text-secondary">Gordura / cintura</p>
+            <p class="mt-1 text-2xl font-bold">{{ $cards['fat_waist']['value'] }}</p>
+            @if ($cards['fat_waist']['comparison'])
+                <p class="mt-1 text-xs text-text-secondary">{{ $cards['fat_waist']['comparison'] }}</p>
+            @endif
+            <p class="mt-1 text-xs text-text-secondary">{{ $cards['fat_waist']['meta'] }}</p>
+        </div>
     </div>
 
     @if (! $assessment?->isCompleted())
@@ -207,6 +248,16 @@
                 </h2>
                 <p class="whitespace-pre-line text-sm text-text-secondary">{{ $assessment->observations ?: 'Nenhuma observação.' }}</p>
             </section>
+
+            @if ($assessment->trainer_notes)
+                <section class="card space-y-3 md:col-span-2">
+                    <h2 class="flex items-center gap-2 font-semibold">
+                        <i class="fas fa-user-check text-cyan"></i>
+                        Observação do treinador
+                    </h2>
+                    <p class="whitespace-pre-line text-sm text-text-secondary">{{ $assessment->trainer_notes }}</p>
+                </section>
+            @endif
         </div>
 
         @if ($student->assessments->count() > 1)

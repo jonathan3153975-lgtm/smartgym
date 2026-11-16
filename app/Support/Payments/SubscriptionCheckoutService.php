@@ -80,6 +80,11 @@ class SubscriptionCheckoutService
                 'price' => $plan->price,
                 'period' => $plan->period,
                 'duration_days' => $plan->duration_days ?: MembershipPlan::durationForPeriod($plan->period),
+                'plan_type' => $plan->type,
+                'modality_ids' => $plan->modalities()->pluck('modalities.id')->map(fn ($id) => (int) $id)->all(),
+                'weekly_accesses' => $plan->weekly_accesses,
+                'daily_checkins' => $plan->daily_checkins,
+                'checkin_advance_minutes' => $plan->checkin_advance_minutes ?? MembershipPlan::DEFAULT_CHECKIN_ADVANCE,
             ]);
 
             $payment = $subscription->payments()->create([

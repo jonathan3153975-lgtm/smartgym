@@ -26,6 +26,7 @@ class WorkoutPlan extends Model
         'student_id',
         'name',
         'objective',
+        'goals',
         'notes',
         'status',
         'visibility',
@@ -35,6 +36,8 @@ class WorkoutPlan extends Model
     ];
 
     protected $casts = [
+        'goals' => 'array',
+        'copies_count' => 'integer',
         'starts_at' => 'date',
         'ends_at' => 'date',
         'deleted_at' => 'datetime',
@@ -108,5 +111,23 @@ class WorkoutPlan extends Model
     public function isOwnedByStudent(): bool
     {
         return $this->student_id !== null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getGoalLabelsAttribute(): array
+    {
+        return collect($this->goals ?? [])
+            ->map(fn (string $goal): string => StudentAssessment::GOALS[$goal] ?? $goal)
+            ->values()
+            ->all();
+    }
+
+    public function getCopiesLabelAttribute(): string
+    {
+        return $this->copies_count === 1
+            ? '1 uso'
+            : (int) $this->copies_count.' usos';
     }
 }

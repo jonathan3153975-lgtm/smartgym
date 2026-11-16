@@ -3,6 +3,11 @@
 @section('title', 'Ficha técnica - '.$student->name)
 
 @section('content')
+@php
+    $currentAssessment = $bodySummary['current'];
+    $previousAssessment = $bodySummary['previous'];
+@endphp
+
 <div class="container mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -19,68 +24,41 @@
                 <i class="fas fa-clipboard-check mr-2"></i>
                 Avaliação
             </a>
-            <a href="{{ route('students.measurements', $student) }}" class="btn-outline">
-                <i class="fas fa-weight-scale mr-2"></i>
-                Medidas
-            </a>
-            @if ($activePlan)
-                <a href="{{ route('admin.workout-plans.builder', $activePlan) }}" class="btn-primary">
-                    <i class="fas fa-list-check mr-2"></i>
-                    Editar treino atual
-                </a>
-            @endif
         </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <div class="card">
-            <p class="text-sm text-text-secondary">Treinos concluídos</p>
-            <p class="mt-1 text-2xl font-bold">{{ $summary['workouts'] }}</p>
-            <p class="mt-1 text-xs text-text-secondary">{{ $summary['last_30'] }} nos últimos 30 dias</p>
-        </div>
-        <div class="card">
-            <p class="text-sm text-text-secondary">Séries</p>
-            <p class="mt-1 text-2xl font-bold">{{ $summary['sets'] }}</p>
-            <p class="mt-1 text-xs text-text-secondary">{{ number_format($summary['reps'], 0, ',', '.') }} repetições</p>
-        </div>
-        <div class="card">
-            <p class="text-sm text-text-secondary">Volume total</p>
-            <p class="mt-1 text-2xl font-bold">{{ number_format($summary['volume'], 0, ',', '.') }} kg</p>
-            <p class="mt-1 text-xs text-text-secondary">reps × carga</p>
-        </div>
-        <div class="card">
-            <p class="text-sm text-text-secondary">Último treino</p>
-            <p class="mt-1 text-2xl font-bold">{{ $summary['last_workout']?->format('d/m') ?? '—' }}</p>
-            <p class="mt-1 text-xs text-text-secondary">{{ $summary['last_workout']?->format('H:i') ?? 'Sem registro' }}</p>
-        </div>
-        <div class="card">
-            <p class="text-sm text-text-secondary">Plano atual</p>
-            <p class="mt-1 truncate text-lg font-bold">{{ $activePlan?->name ?? 'Nenhum' }}</p>
-            <p class="mt-1 text-xs text-text-secondary">{{ $activePlan?->sessions_count ?? 0 }} sessão(ões)</p>
-        </div>
-    </div>
+    @include('pages.students._tabs', ['student' => $student, 'activeTab' => 'technical'])
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section class="card space-y-4">
-            <h2 class="flex items-center gap-2 font-semibold">
-                <i class="fas fa-layer-group text-cyan"></i>
-                Grupos musculares treinados
-            </h2>
+            <div class="flex flex-col gap-1">
+                <h2 class="flex items-center gap-2 font-semibold">
+                    <i class="fas fa-layer-group text-cyan"></i>
+                    Grupos musculares treinados
+                </h2>
+                <p class="text-xs text-text-secondary">Clique em um grupo para ver os exercícios e a carga máxima.</p>
+            </div>
 
-            @if ($volumeByMuscle->isEmpty())
+            @if ($muscleGroups === [])
                 <p class="text-sm text-text-secondary">Sem treinos concluídos ainda.</p>
             @else
                 <div class="space-y-3">
-                    @foreach ($volumeByMuscle as $item)
-                        <div>
-                            <div class="flex items-center justify-between text-sm">
+                    @foreach ($muscleGroups as $item)
+                        <button type="button" onclick="openTechnicalMuscleGroupModal(@js($item['group']))"
+                                class="w-full rounded-xl border border-custom bg-bg-secondary p-2.5 text-left transition-colors hover:border-cyan">
+                            <div class="flex items-center justify-between gap-2 text-sm">
                                 <span class="font-medium">{{ $item['label'] }}</span>
-                                <span class="text-text-secondary">{{ $item['sets'] }} séries · {{ number_format($item['volume'], 0, ',', '.') }} kg</span>
+                                <span class="text-text-secondary">{{ $item['percent'] }}%</span>
                             </div>
-                            <div class="mt-1 h-2 overflow-hidden rounded-full bg-surface-elevated">
-                                <div class="h-full rounded-full" style="width: {{ $item['percent'] }}%; background: var(--color-primary);"></div>
+                            <div class="progress mt-1 h-2">
+                                <div class="progress-bar" role="progressbar"
+                                     style="width: {{ max(4, $item['percent']) }}%;"
+                                     aria-valuenow="{{ $item['percent'] }}" aria-valuemin="0" aria-valuemax="100"></div>
                             </div>
-                        </div>
+                            <p class="mt-1 text-xs text-text-secondary">
+                                {{ $item['sets'] }} série(s) &middot; {{ number_format($item['volume'], 0, ',', '.') }} kg
+                            </p>
+                        </button>
                     @endforeach
                 </div>
             @endif
@@ -115,7 +93,7 @@
                 Exercícios mais executados
             </h2>
 
-            @if ($topExercises->isEmpty())
+            @if ($topExercises === [])
                 <p class="text-sm text-text-secondary">Sem dados de execução ainda.</p>
             @else
                 <div class="overflow-x-auto">
@@ -144,16 +122,50 @@
         </section>
 
         <section class="card space-y-4">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-1">
                 <h2 class="flex items-center gap-2 font-semibold">
                     <i class="fas fa-weight-scale text-cyan"></i>
                     Acompanhamento de medidas
                 </h2>
-                <a href="{{ route('students.measurements', $student) }}" class="text-sm font-semibold text-cyan hover:underline">Ver todas</a>
+                <p class="text-xs text-text-secondary">
+                    @if ($currentAssessment?->submitted_at)
+                        Última avaliação em {{ $currentAssessment->submitted_at->format('d/m/Y') }}.
+                    @else
+                        Nenhuma avaliação registrada.
+                    @endif
+                    @if ($previousAssessment)
+                        Comparativos em relação à avaliação anterior.
+                    @endif
+                </p>
             </div>
 
+            @if ($assessmentMetrics !== [])
+                <div class="rounded-xl border border-custom bg-bg-secondary p-3">
+                    <div class="divide-y divide-custom">
+                        @foreach ($assessmentMetrics as $metric)
+                            <div class="flex items-center justify-between gap-3 py-2">
+                                <span class="text-sm text-text-secondary">{{ $metric['label'] }}</span>
+                                <div class="min-w-0 text-right">
+                                    <p class="font-semibold">{{ $metric['value'] }}</p>
+                                    @if ($metric['percent_label'])
+                                        <p class="text-xs text-text-secondary">
+                                            @if ($metric['direction'] === 'up')
+                                                <i class="fas fa-arrow-up mr-1"></i>
+                                            @elseif ($metric['direction'] === 'down')
+                                                <i class="fas fa-arrow-down mr-1"></i>
+                                            @endif
+                                            {{ $metric['percent_label'] }}
+                                        </p>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             @if ($measurements->isEmpty())
-                <p class="text-sm text-text-secondary">Nenhuma medida registrada.</p>
+                <p class="text-sm text-text-secondary">Nenhuma medida corporal registrada.</p>
             @else
                 <div class="overflow-x-auto">
                     <table class="table-custom">
@@ -179,14 +191,14 @@
                 </div>
             @endif
 
-            @if ($student->assessment?->isCompleted())
+            @if ($currentAssessment?->isCompleted())
                 <div class="rounded-xl border border-custom bg-bg-secondary p-3">
-                    <p class="text-xs text-text-secondary">Avaliação mais recente</p>
-                    <p class="mt-1 font-medium">{{ $student->assessment->goal_label }}</p>
+                    <p class="text-xs text-text-secondary">Objetivo da avaliação</p>
+                    <p class="mt-1 font-medium">{{ $currentAssessment->goal_label }}</p>
                     <p class="text-xs text-text-secondary">
-                        {{ $student->assessment->experience_level_label }}
-                        &middot; {{ $student->assessment->training_frequency }}x por semana
-                        @if ($student->assessment->parq_positive)
+                        {{ $currentAssessment->experience_level_label }}
+                        &middot; {{ $currentAssessment->training_frequency }}x por semana
+                        @if ($currentAssessment->parq_positive)
                             &middot; <span class="text-yellow">PAR-Q com alerta</span>
                         @endif
                     </p>
@@ -196,82 +208,89 @@
             @endif
         </section>
     </div>
-
-    <section class="card space-y-4">
-        <h2 class="flex items-center gap-2 font-semibold">
-            <i class="fas fa-clock-rotate-left text-cyan"></i>
-            Treinos recentes
-        </h2>
-
-        @if ($recentLogs->isEmpty())
-            <p class="text-sm text-text-secondary">Nenhum treino concluído ainda.</p>
-        @else
-            <div class="space-y-2">
-                @foreach ($recentLogs as $log)
-                    <div class="flex flex-col gap-2 rounded-xl border border-custom bg-bg-secondary p-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <p class="font-medium">{{ $log->session_name }}</p>
-                            <p class="text-xs text-text-secondary">{{ $log->started_at->format('d/m/Y H:i') }} &middot; {{ $log->duration_label }}</p>
-                        </div>
-                        <span class="badge badge-info">{{ $log->sets->count() }} séries &middot; {{ number_format($log->total_volume, 0, ',', '.') }} kg</span>
-                    </div>
-                @endforeach
-            </div>
-        @endif
-    </section>
-
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section class="card space-y-4">
-            <h2 class="flex items-center gap-2 font-semibold">
-                <i class="fas fa-copy text-cyan"></i>
-                Aplicar treino existente
-            </h2>
-            <p class="text-xs text-text-secondary">
-                Copie um treino público da rede para o aluno. Uma cópia particular e editável será criada.
-            </p>
-
-            @if ($publicPlans->isEmpty())
-                <p class="text-sm text-text-secondary">Nenhum treino público disponível. Crie um em Treinos.</p>
-            @else
-                <form method="POST" action="{{ route('students.technical-sheet.apply', $student) }}" class="space-y-3">
-                    @csrf
-                    <select name="workout_plan_id" required class="input-field">
-                        <option value="">Selecione o treino</option>
-                        @foreach ($publicPlans as $publicPlan)
-                            <option value="{{ $publicPlan->id }}">
-                                {{ $publicPlan->name }} ({{ $publicPlan->sessions_count }} sessões)
-                            </option>
-                        @endforeach
-                    </select>
-                    <button type="submit" class="btn-primary w-full">
-                        <i class="fas fa-copy mr-2"></i>
-                        Aplicar ao aluno
-                    </button>
-                </form>
-            @endif
-        </section>
-
-        <section class="card space-y-4">
-            <h2 class="flex items-center gap-2 font-semibold">
-                <i class="fas fa-plus text-cyan"></i>
-                Criar treino personalizado
-            </h2>
-            <p class="text-xs text-text-secondary">
-                Crie um treino particular para este aluno e monte as sessões em seguida.
-            </p>
-
-            <form method="POST" action="{{ route('students.technical-sheet.plan', $student) }}" class="space-y-3">
-                @csrf
-                <input type="text" name="name" required maxlength="255" class="input-field"
-                       placeholder="Nome do treino" value="Treino personalizado - {{ $student->name }}">
-                <input type="text" name="objective" maxlength="255" class="input-field" placeholder="Objetivo (opcional)">
-                <textarea name="notes" rows="2" maxlength="2000" class="input-field" placeholder="Observações (opcional)"></textarea>
-                <button type="submit" class="btn-primary w-full">
-                    <i class="fas fa-plus mr-2"></i>
-                    Criar e montar
-                </button>
-            </form>
-        </section>
-    </div>
 </div>
+
+@foreach ($muscleGroups as $group)
+    <div id="technicalMuscleGroupModal-{{ $group['group'] }}" data-technical-muscle-group-modal="{{ $group['group'] }}"
+         class="modal-overlay hidden" role="dialog" aria-modal="true"
+         aria-labelledby="technicalMuscleGroupTitle-{{ $group['group'] }}">
+        <div class="modal-content flex max-h-[85vh] flex-col">
+            <div class="mb-4 flex items-start justify-between gap-3">
+                <div>
+                    <h2 id="technicalMuscleGroupTitle-{{ $group['group'] }}" class="text-xl font-bold">{{ $group['label'] }}</h2>
+                    <p class="mt-1 text-xs text-text-secondary">{{ $group['percent'] }}% das repetições registradas</p>
+                </div>
+                <button type="button" onclick="closeTechnicalMuscleGroupModal(@js($group['group']))"
+                        class="rounded-lg p-2 text-text-secondary hover:bg-surface" aria-label="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                @forelse ($muscleGroupExercises[$group['group']] ?? [] as $exercise)
+                    <div class="rounded-xl border border-custom bg-bg-secondary p-2.5">
+                        <div class="flex items-center justify-between gap-2 text-xs">
+                            <span class="truncate font-medium">{{ $exercise['name'] }}</span>
+                            <span class="shrink-0 text-text-secondary">{{ $exercise['max_weight_label'] }} &middot; {{ $exercise['percent'] }}%</span>
+                        </div>
+                        <div class="progress mt-1 h-2">
+                            <div class="progress-bar" role="progressbar"
+                                 style="width: {{ max(4, $exercise['percent']) }}%;"
+                                 aria-valuenow="{{ $exercise['percent'] }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                @empty
+                    <p class="text-sm text-text-secondary">Nenhum exercício registrado para este grupo.</p>
+                @endforelse
+            </div>
+
+            <div class="mt-3 flex justify-end border-t border-custom pt-3">
+                <button type="button" onclick="closeTechnicalMuscleGroupModal(@js($group['group']))" class="btn-outline">Fechar</button>
+            </div>
+        </div>
+    </div>
+@endforeach
+
+<script>
+    (function () {
+        window.openTechnicalMuscleGroupModal = function (group) {
+            const modal = document.getElementById('technicalMuscleGroupModal-' + group);
+
+            if (!modal) {
+                return;
+            }
+
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        };
+
+        window.closeTechnicalMuscleGroupModal = function (group) {
+            const modal = document.getElementById('technicalMuscleGroupModal-' + group);
+
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+
+            document.body.style.overflow = '';
+        };
+
+        document.querySelectorAll('[data-technical-muscle-group-modal]').forEach(function (modal) {
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal) {
+                    closeTechnicalMuscleGroupModal(modal.dataset.technicalMuscleGroupModal);
+                }
+            });
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') {
+                return;
+            }
+
+            document.querySelectorAll('[data-technical-muscle-group-modal]:not(.hidden)').forEach(function (modal) {
+                closeTechnicalMuscleGroupModal(modal.dataset.technicalMuscleGroupModal);
+            });
+        });
+    })();
+</script>
 @endsection

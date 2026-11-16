@@ -5,47 +5,41 @@ namespace Database\Seeders;
 use App\Models\Exercise;
 use App\Models\Network;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 
 class ExerciseSeeder extends Seeder
 {
     public function run(): void
     {
-        $network = Network::where('slug', 'smartgym-demo')->first();
+        Network::query()->each(function (Network $network): void {
+            self::seedForNetwork($network);
+        });
+    }
 
-        if (! $network) {
-            return;
-        }
+    /**
+     * @return Collection<int, Exercise>
+     */
+    public static function seedForNetwork(Network $network, ?int $createdBy = null): Collection
+    {
+        $exercises = collect();
 
-        $exercises = [
-            ['name' => 'Supino reto', 'muscle_group' => 'chest', 'equipment' => 'barbell'],
-            ['name' => 'Supino inclinado com halteres', 'muscle_group' => 'chest', 'equipment' => 'dumbbell'],
-            ['name' => 'Puxada frente', 'muscle_group' => 'back', 'equipment' => 'machine'],
-            ['name' => 'Remada curvada', 'muscle_group' => 'back', 'equipment' => 'barbell'],
-            ['name' => 'Agachamento livre', 'muscle_group' => 'legs', 'equipment' => 'barbell'],
-            ['name' => 'Leg press', 'muscle_group' => 'legs', 'equipment' => 'machine'],
-            ['name' => 'Levantamento terra', 'muscle_group' => 'back', 'equipment' => 'barbell'],
-            ['name' => 'Stiff', 'muscle_group' => 'legs', 'equipment' => 'barbell'],
-            ['name' => 'Desenvolvimento militar', 'muscle_group' => 'shoulders', 'equipment' => 'barbell'],
-            ['name' => 'Elevação lateral', 'muscle_group' => 'shoulders', 'equipment' => 'dumbbell'],
-            ['name' => 'Rosca direta', 'muscle_group' => 'biceps', 'equipment' => 'barbell'],
-            ['name' => 'Tríceps na corda', 'muscle_group' => 'triceps', 'equipment' => 'machine'],
-            ['name' => 'Prancha', 'muscle_group' => 'core', 'equipment' => 'none'],
-            ['name' => 'Abdominal remador', 'muscle_group' => 'core', 'equipment' => 'none'],
-            ['name' => 'Esteira', 'muscle_group' => 'cardio', 'equipment' => 'machine'],
-            ['name' => 'Cadeira extensora', 'muscle_group' => 'legs', 'equipment' => 'machine'],
-        ];
-
-        foreach ($exercises as $exercise) {
-            Exercise::firstOrCreate(
+        foreach (ExerciseCatalog::all() as $exercise) {
+            $exercises->push(Exercise::firstOrCreate(
                 [
                     'network_id' => $network->id,
                     'name' => $exercise['name'],
                 ],
-                array_merge($exercise, [
+                [
                     'network_id' => $network->id,
+                    'muscle_group' => $exercise['muscle_group'],
+                    'equipment' => $exercise['equipment'],
                     'status' => 'active',
-                ])
-            );
+                    'created_by' => $createdBy,
+                    'updated_by' => $createdBy,
+                ]
+            ));
         }
+
+        return $exercises;
     }
 }

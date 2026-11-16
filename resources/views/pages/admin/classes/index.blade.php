@@ -3,12 +3,12 @@
 @section('title', 'Turmas')
 
 @section('content')
-<div class="container mx-auto max-w-6xl p-4 sm:p-6">
+<div class="p-4 sm:p-6">
     <div class="card">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h1 class="text-2xl font-bold">Turmas</h1>
-                <p class="mt-1 text-text-secondary">Turmas vinculadas às unidades, com modalidade, dia, horário, vagas e professor</p>
+                <p class="mt-1 text-text-secondary">Nome, unidade, modalidade, valor da aula avulsa, status e grade de horários</p>
             </div>
 
             <button type="button" onclick="openClassModal()" class="btn-primary whitespace-nowrap">
@@ -24,7 +24,7 @@
                     <input type="search"
                            id="classSearch"
                            value="{{ request('search') }}"
-                           placeholder="Buscar por turma, modalidade, unidade ou professor..."
+                           placeholder="Buscar por turma, modalidade ou unidade..."
                            class="input-field input-search"
                            autocomplete="off"
                            aria-label="Buscar turmas">
@@ -32,21 +32,12 @@
                        class="fas fa-spinner fa-spin absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hidden"></i>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3 sm:w-auto">
+                <div class="grid grid-cols-1 gap-3 sm:w-auto">
                     <select id="classUnitFilter" class="input-field" aria-label="Filtrar por unidade">
                         <option value="">Todas as unidades</option>
                         @foreach ($units as $unit)
                             <option value="{{ $unit->id }}" @selected((string) request('unit_id') === (string) $unit->id)>
                                 {{ $unit->name }}
-                            </option>
-                        @endforeach
-                    </select>
-
-                    <select id="classWeekdayFilter" class="input-field" aria-label="Filtrar por dia da semana">
-                        <option value="">Todos os dias</option>
-                        @foreach (\App\Models\SchoolClass::WEEKDAYS as $value => $label)
-                            <option value="{{ $value }}" @selected((string) request('weekday') === (string) $value)>
-                                {{ $label }}
                             </option>
                         @endforeach
                     </select>
@@ -61,12 +52,12 @@
 </div>
 
 @include('pages.admin.classes._modal')
+@include('pages.admin.classes._schedules_modal')
 
 <script>
     (function () {
         const searchInput = document.getElementById('classSearch');
         const unitFilter = document.getElementById('classUnitFilter');
-        const weekdayFilter = document.getElementById('classWeekdayFilter');
         const results = document.getElementById('classesResults');
         const spinner = document.getElementById('classSearchSpinner');
         let debounceTimer = null;
@@ -80,7 +71,6 @@
                 const filters = {
                     search: searchInput.value.trim(),
                     unit_id: unitFilter.value,
-                    weekday: weekdayFilter.value,
                 };
 
                 Object.entries(filters).forEach(function ([key, value]) {
@@ -125,10 +115,8 @@
             }, 300);
         });
 
-        [unitFilter, weekdayFilter].forEach(function (filter) {
-            filter?.addEventListener('change', function () {
-                window.refreshClassesTable();
-            });
+        unitFilter?.addEventListener('change', function () {
+            window.refreshClassesTable();
         });
 
         results?.addEventListener('click', function (event) {
@@ -137,6 +125,12 @@
             if (link) {
                 event.preventDefault();
                 window.refreshClassesTable(link.href);
+                return;
+            }
+
+            const scheduleButton = event.target.closest('.schedule-class');
+            if (scheduleButton) {
+                window.openClassScheduleModal(Number(scheduleButton.dataset.classId));
                 return;
             }
 

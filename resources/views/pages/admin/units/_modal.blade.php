@@ -1,10 +1,14 @@
 @php
     $contextNetwork = $network ?? null;
-    $unitNetworkOptions = $contextNetwork ? collect([$contextNetwork]) : \App\Support\TenantContext::current()->networksQuery()->get(['id', 'name']);
+    $tenant = \App\Support\TenantContext::current();
+    $isPlatform = $tenant->isPlatform();
+    $unitNetworkOptions = ($contextNetwork && ! $isPlatform)
+        ? collect([$contextNetwork])
+        : $tenant->networksQuery()->get(['id', 'name']);
     $selectedUnitNetworkId = old('network_id', $contextNetwork?->id ?? ($unitNetworkOptions->count() === 1 ? $unitNetworkOptions->first()->id : null));
-    $unitRegionOptions = $contextNetwork
+    $unitRegionOptions = ($contextNetwork && ! $isPlatform)
         ? $contextNetwork->regions()->orderBy('name')->get()
-        : \App\Support\TenantContext::current()->regionsQuery()->with('network')->get();
+        : $tenant->regionsQuery()->with('network')->get();
 @endphp
 
 {{-- Unit Modal (create/edit). Pass $network/$region to lock the context. --}}
@@ -53,7 +57,7 @@
                                 <option value="{{ $regionOption->id }}"
                                         data-network-id="{{ $regionOption->network_id }}"
                                         @selected((string) old('region_id', ($region ?? null)?->id ?? '') === (string) $regionOption->id)>
-                                    {{ $regionOption->name }}{{ $contextNetwork ? '' : ' - '.$regionOption->network?->name }}
+                                    {{ $regionOption->name }}{{ $unitNetworkOptions->count() > 1 ? ' - '.$regionOption->network?->name : '' }}
                                 </option>
                             @endforeach
                         </select>
@@ -376,7 +380,7 @@
             let hasSelectedRegion = false;
 
             regionOptions.forEach(function (option) {
-                const matches = !networkId || option.dataset.networkId === networkId;
+                const matches = Boolean(networkId) && option.dataset.networkId === networkId;
                 option.hidden = !matches;
                 option.disabled = !matches;
 

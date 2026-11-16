@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ClassSchedule;
 use App\Models\MembershipPlan;
 use App\Models\Modality;
 use App\Models\Network;
@@ -62,6 +63,39 @@ class StudentPortalTest extends TestCase
     }
 
     /** @test */
+    public function test_student_can_update_personal_data_from_the_profile(): void
+    {
+        $this->post(route('student.portal.login.store', $this->network), [
+            'email' => 'aluno.portal@exemplo.com',
+            'password' => 'SenhaAluno123',
+        ])->assertRedirect();
+
+        $this->get(route('student.portal.profile', $this->network))
+            ->assertOk()
+            ->assertSee('Meus dados')
+            ->assertSee('Alterar senha');
+
+        $this->put(route('student.portal.profile.update', $this->network), [
+            'name' => 'Aluno Atualizado',
+            'email' => 'aluno.atualizado@exemplo.com',
+            'phone' => '(41) 99999-1111',
+            'whatsapp' => '(41) 99999-1111',
+            'birth_date' => '1990-05-10',
+        ])->assertRedirect(route('student.portal.profile', $this->network));
+
+        $this->assertDatabaseHas('students', [
+            'id' => $this->student->id,
+            'name' => 'Aluno Atualizado',
+            'email' => 'aluno.atualizado@exemplo.com',
+        ]);
+
+        $this->assertDatabaseHas('student_accounts', [
+            'id' => $this->account->id,
+            'email' => 'aluno.atualizado@exemplo.com',
+        ]);
+    }
+
+    /** @test */
     public function test_student_can_open_the_login_page_and_log_in(): void
     {
         $this->get(route('student.portal.login', $this->network))
@@ -89,7 +123,7 @@ class StudentPortalTest extends TestCase
 
         $this->get(route('student.portal.dashboard', $this->network))
             ->assertOk()
-            ->assertSee('Dashboard em desenvolvimento');
+            ->assertSee('Frequência');
 
         $this->post(route('student.portal.logout', $this->network))
             ->assertRedirect(route('student.portal.login', $this->network));
@@ -191,7 +225,7 @@ class StudentPortalTest extends TestCase
     /** @test */
     public function test_student_show_page_exposes_the_access_provisioning(): void
     {
-        $this->get(route('students.show', $this->student))
+        $this->get(route('students.show', ['student' => $this->student, 'tab' => 'cadastro']))
             ->assertOk()
             ->assertSee('Acesso do aluno')
             ->assertSee('aluno.portal@exemplo.com')
@@ -264,16 +298,20 @@ class StudentPortalTest extends TestCase
         ]);
         $modality->units()->attach($this->unit->id);
 
-        SchoolClass::create([
+        $class = SchoolClass::create([
             'network_id' => $this->network->id,
             'unit_id' => $this->unit->id,
             'modality_id' => $modality->id,
             'name' => 'Cross Iniciante',
+            'status' => 'active',
+        ]);
+
+        ClassSchedule::create([
+            'class_id' => $class->id,
             'weekday' => 1,
             'start_time' => '07:00',
             'end_time' => '08:00',
             'vacancies' => 12,
-            'status' => 'active',
         ]);
 
         $eligiblePlan = MembershipPlan::create([

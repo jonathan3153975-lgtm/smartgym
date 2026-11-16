@@ -39,15 +39,15 @@
                 Nova reserva
             </h2>
 
-            <form method="POST" action="{{ route('unit.class-bookings.store') }}" class="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <form method="POST" action="{{ route('unit.class-bookings.store') }}" class="grid grid-cols-1 gap-3 sm:grid-cols-5">
                 @csrf
                 <div class="sm:col-span-2">
-                    <label for="reservation_class" class="label-field">Turma <span class="text-red">*</span></label>
-                    <select id="reservation_class" name="class_id" required class="input-field">
+                    <label for="reservation_class" class="label-field">Turma / horário <span class="text-red">*</span></label>
+                    <select id="reservation_class" name="class_schedule_id" required class="input-field">
                         <option value="">Selecione a turma</option>
-                        @foreach ($classOptions as $classOption)
-                            <option value="{{ $classOption->id }}">
-                                {{ $classOption->name }} ({{ $classOption->weekday_label }} · {{ $classOption->time_label }})
+                        @foreach ($classOptions as $scheduleOption)
+                            <option value="{{ $scheduleOption->id }}">
+                                {{ $scheduleOption->schoolClass?->name }} ({{ $scheduleOption->weekday_label }} · {{ $scheduleOption->time_label }})
                             </option>
                         @endforeach
                     </select>
@@ -68,7 +68,11 @@
                         <option value="single">Aula avulsa paga na recepção</option>
                     </select>
                 </div>
-                <div class="sm:col-span-4 flex justify-end">
+                <div>
+                    <label for="reservation_early" class="label-field">Antecedência check-in (min)</label>
+                    <input type="number" id="reservation_early" name="early_minutes" min="0" max="120" value="20" class="input-field">
+                </div>
+                <div class="sm:col-span-5 flex justify-end">
                     <button type="submit" class="btn-primary">
                         <i class="fas fa-calendar-check mr-2"></i>
                         Registrar reserva
@@ -84,37 +88,37 @@
             Aulas do dia selecionado
         </h2>
 
-        @if ($classes->isEmpty())
-            <div class="card py-8 text-center text-sm text-text-secondary">Nenhuma turma neste dia.</div>
+        @if ($schedules->isEmpty())
+            <div class="card py-8 text-center text-sm text-text-secondary">Nenhum horário de turma neste dia.</div>
         @else
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                @foreach ($classes as $class)
+                @foreach ($schedules as $schedule)
                     @php
-                        $nextDate = $nextDates[$class->id];
-                        $occupied = $classBookings->get($class->id.'-'.$nextDate->format('Y-m-d'))?->count() ?? 0;
+                        $nextDate = $nextDates[$schedule->id];
+                        $occupied = $classBookings->get($schedule->id.'-'.$nextDate->format('Y-m-d'))?->count() ?? 0;
                     @endphp
                     <article class="card space-y-3">
                         <div class="flex items-start justify-between gap-3">
                             <div>
-                                <p class="font-semibold">{{ $class->name }}</p>
+                                <p class="font-semibold">{{ $schedule->schoolClass?->name }}</p>
                                 <p class="text-xs text-text-secondary">
-                                    {{ $class->time_label }}
-                                    &middot; {{ $class->modality?->name ?? 'Sem modalidade' }}
-                                    @if ($class->teacher)
-                                        &middot; {{ $class->teacher->name }}
+                                    {{ $schedule->time_label }}
+                                    &middot; {{ $schedule->schoolClass?->modality?->name ?? 'Sem modalidade' }}
+                                    @if ($schedule->person || $schedule->teacher)
+                                        &middot; {{ $schedule->person?->name ?? $schedule->teacher?->name }}
                                     @endif
                                 </p>
                                 <p class="mt-1 text-xs text-text-secondary">{{ $nextDate->format('d/m/Y') }}</p>
                             </div>
-                            <span class="badge {{ $occupied >= $class->vacancies ? 'badge-warning' : 'badge-success' }}">
-                                {{ $occupied }}/{{ $class->vacancies }}
+                            <span class="badge {{ $occupied >= $schedule->vacancies ? 'badge-warning' : 'badge-success' }}">
+                                {{ $occupied }}/{{ $schedule->vacancies }}
                             </span>
                         </div>
 
                         <div class="flex items-center justify-between gap-2 text-sm text-text-secondary">
-                            <span>{{ max(0, $class->vacancies - $occupied) }} vaga(s) restante(s)</span>
-                            @if ($class->drop_in_price)
-                                <span>Avulsa: R$ {{ number_format((float) $class->drop_in_price, 2, ',', '.') }}</span>
+                            <span>{{ max(0, $schedule->vacancies - $occupied) }} vaga(s) restante(s)</span>
+                            @if ($schedule->schoolClass?->drop_in_price)
+                                <span>Avulsa: R$ {{ number_format((float) $schedule->schoolClass->drop_in_price, 2, ',', '.') }}</span>
                             @endif
                         </div>
                     </article>
@@ -149,7 +153,12 @@
                         @foreach ($upcomingBookings as $booking)
                             <tr>
                                 <td class="font-medium">{{ $booking->student?->name ?? 'Aluno' }}</td>
-                                <td class="text-sm">{{ $booking->schoolClass?->name ?? '—' }}</td>
+                                <td class="text-sm">
+                                    {{ $booking->schoolClass?->name ?? '—' }}
+                                    @if ($booking->schedule)
+                                        <span class="text-xs text-text-secondary">· {{ $booking->schedule->time_label }}</span>
+                                    @endif
+                                </td>
                                 <td class="text-sm">{{ $booking->booked_for?->format('d/m/Y') ?? '—' }}</td>
                                 <td class="text-sm">{{ $booking->type_label }}</td>
                                 <td class="text-sm">R$ {{ number_format((float) $booking->amount, 2, ',', '.') }}</td>

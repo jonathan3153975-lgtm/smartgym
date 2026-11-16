@@ -1,6 +1,6 @@
 @php
     $personTenant = \App\Support\TenantContext::current();
-    $personUnitOptions = $personTenant->unitsQuery()->get(['id', 'name']);
+    $personUnitOptions = $personTenant->unitsQuery()->get(['id', 'name', 'network_id']);
     $personNetworkOptions = $personTenant->isPlatform()
         ? \App\Models\Network::orderBy('name')->get(['id', 'name'])
         : collect();
@@ -31,7 +31,7 @@
             <section class="space-y-4">
                 <h3 class="text-sm font-semibold uppercase tracking-wider text-text-secondary">Identificação</h3>
 
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div>
                         <label for="person_type" class="label-field">Tipo de pessoa <span class="text-red">*</span></label>
                         <select id="person_type" name="person_type" required class="input-field">
@@ -45,6 +45,13 @@
                         <select id="person_category" name="category" required class="input-field">
                             <option value="client">Cliente</option>
                             <option value="staff">Equipe</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="person_job_function" class="label-field">Função</label>
+                        <select id="person_job_function" name="job_function" class="input-field">
+                            <option value="">Selecione</option>
                         </select>
                     </div>
 
@@ -194,7 +201,7 @@
                         <select id="person_unit_id" name="unit_id" class="input-field">
                             <option value="">Sem unidade</option>
                             @foreach ($personUnitOptions as $unitOption)
-                                <option value="{{ $unitOption->id }}" @selected($personUnitOptions->count() === 1)>{{ $unitOption->name }}</option>
+                                <option value="{{ $unitOption->id }}" data-network-id="{{ $unitOption->network_id }}" @selected($personUnitOptions->count() === 1)>{{ $unitOption->name }}</option>
                             @endforeach
                         </select>
                         <p class="mt-1 text-xs text-text-secondary">
@@ -243,10 +250,16 @@
         const submitBtn = document.getElementById('personSubmitBtn');
         const errorBox = document.getElementById('personFormError');
         const typeSelect = document.getElementById('person_type');
+        const categorySelect = document.getElementById('person_category');
+        const jobFunctionSelect = document.getElementById('person_job_function');
         const nameLabel = document.getElementById('personNameLabel');
         const documentLabel = document.getElementById('personDocumentLabel');
         const documentInput = document.getElementById('person_document');
         const legalRepresentativeDocument = document.getElementById('person_legal_representative_document');
+        const unitSelect = document.getElementById('person_unit_id');
+        const unitOptions = unitSelect
+            ? Array.from(unitSelect.querySelectorAll('option[data-network-id]'))
+            : [];
 
         if (!modal || !form) {
             return;
@@ -256,6 +269,7 @@
             network_id: document.getElementById('person_network_id'),
             person_type: typeSelect,
             category: document.getElementById('person_category'),
+            job_function: document.getElementById('person_job_function'),
             name: document.getElementById('person_name'),
             trade_name: document.getElementById('person_trade_name'),
             state_registration: document.getElementById('person_state_registration'),
@@ -279,6 +293,58 @@
         };
 
         let currentPersonId = null;
+
+        const jobFunctions = {
+            client: {
+                student: 'Aluno',
+                personal_trainer: 'Personal-trainer',
+            },
+            staff: {
+                administration: 'Administração',
+                instructor: 'Professor/Instrutor/Treinador',
+                personal_trainer: 'Personal-trainer',
+            },
+        };
+
+        function applyJobFunctions(selected = null) {
+            const functions = jobFunctions[categorySelect.value] || jobFunctions.client;
+            const current = selected ?? jobFunctionSelect.value;
+
+            jobFunctionSelect.innerHTML = '<option value="">Selecione</option>';
+
+            Object.entries(functions).forEach(function ([value, label]) {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = label;
+                option.selected = value === current;
+                jobFunctionSelect.appendChild(option);
+            });
+        }
+
+        categorySelect.addEventListener('change', function () {
+            applyJobFunctions();
+        });
+
+        function filterUnitsByNetwork() {
+            if (!fields.network_id || !unitSelect) {
+                return;
+            }
+
+            const networkId = fields.network_id.value;
+
+            unitOptions.forEach(function (option) {
+                const matches = Boolean(networkId) && option.dataset.networkId === networkId;
+
+                option.hidden = !matches;
+                option.disabled = !matches;
+
+                if (!matches && option.selected) {
+                    unitSelect.value = '';
+                }
+            });
+        }
+
+        fields.network_id?.addEventListener('change', filterUnitsByNetwork);
 
         function onlyDigits(value) {
             return String(value ?? '').replace(/\D/g, '');
@@ -341,6 +407,8 @@
             currentPersonId = personId;
 
             applyPersonType(typeSelect.value || 'individual');
+            applyJobFunctions();
+            filterUnitsByNetwork();
 
             if (personId) {
                 title.textContent = 'Editar pessoa';
@@ -371,6 +439,8 @@
                         });
 
                         applyPersonType(data.person_type || 'individual');
+                        applyJobFunctions(data.job_function);
+                        filterUnitsByNetwork();
                     })
                     .catch(function (error) {
                         alertError('Erro', error.message);

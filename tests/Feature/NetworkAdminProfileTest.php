@@ -43,7 +43,7 @@ class NetworkAdminProfileTest extends TestCase
         $html = $this->get(route('admin.dashboard'))
             ->assertOk()
             ->assertSee('Painel administrativo')
-            ->assertSee('Minha rede')
+            ->assertSee('Visão geral da rede')
             ->assertSee('<span>Regiões</span>', false)
             ->assertSee('<span>Unidades</span>', false)
             ->assertSee('<span>Pessoas</span>', false)
@@ -55,7 +55,7 @@ class NetworkAdminProfileTest extends TestCase
             ->assertDontSee('<span>Planos SaaS</span>', false)
             ->getContent();
 
-        $this->assertStringContainsString('Visão da rede', $html);
+        $this->assertStringContainsString('Visão geral da rede', $html);
         $this->assertStringContainsString('Configurações', $html);
     }
 

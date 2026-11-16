@@ -5,8 +5,8 @@
                 <tr>
                     <th>Turma</th>
                     <th>Unidade</th>
-                    <th>Dia e horário</th>
-                    <th>Professor</th>
+                    <th>Grade</th>
+                    <th>Aula avulsa</th>
                     <th>Status</th>
                     <th class="text-right">Ações</th>
                 </tr>
@@ -20,16 +20,21 @@
                         </td>
                         <td class="text-sm">{{ $class->unit?->name ?? '—' }}</td>
                         <td class="text-sm">
-                            <div>{{ $class->weekday_label }}</div>
-                            <div class="text-xs text-text-secondary">{{ $class->time_label }}</div>
-                            <div class="text-xs text-text-secondary">{{ $class->vacancies }} vagas</div>
-                            @if ($class->drop_in_price)
+                            @if ($class->schedules->isEmpty())
+                                <span class="badge badge-warning">Sem grade</span>
+                            @else
+                                <div class="font-medium">{{ $class->schedules->count() }} horário(s)</div>
                                 <div class="text-xs text-text-secondary">
-                                    Aula avulsa: R$ {{ number_format((float) $class->drop_in_price, 2, ',', '.') }}
+                                    {{ $class->schedules->take(2)->map(fn ($schedule) => $schedule->weekday_label.' '.$schedule->time_label)->implode(' · ') }}
+                                    @if ($class->schedules->count() > 2)
+                                        · +{{ $class->schedules->count() - 2 }}
+                                    @endif
                                 </div>
                             @endif
                         </td>
-                        <td class="text-sm">{{ $class->teacher?->name ?? 'Sem professor' }}</td>
+                        <td class="text-sm">
+                            {{ $class->drop_in_price ? 'R$ '.number_format((float) $class->drop_in_price, 2, ',', '.') : '—' }}
+                        </td>
                         <td>
                             @if ($class->status === 'active')
                                 <span class="badge badge-success">Ativa</span>
@@ -39,6 +44,12 @@
                         </td>
                         <td class="text-right">
                             <div class="flex items-center justify-end gap-1">
+                                <button type="button"
+                                        data-class-id="{{ $class->id }}"
+                                        class="schedule-class p-2 rounded-lg hover:bg-surface-elevated transition-colors text-text-secondary"
+                                        title="Definir grade">
+                                    <i class="fas fa-calendar-days"></i>
+                                </button>
                                 <button type="button"
                                         data-class-id="{{ $class->id }}"
                                         class="edit-class p-2 rounded-lg hover:bg-surface-elevated transition-colors text-text-secondary"
@@ -77,15 +88,26 @@
                 </div>
 
                 <div class="mt-3 space-y-1 text-sm text-text-secondary">
-                    <p><i class="fas fa-calendar w-4 text-center mr-1"></i>{{ $class->weekday_label }} &middot; {{ $class->time_label }}</p>
-                    <p><i class="fas fa-chair w-4 text-center mr-1"></i>{{ $class->vacancies }} vagas</p>
+                    @if ($class->schedules->isEmpty())
+                        <p><i class="fas fa-calendar w-4 text-center mr-1"></i>Sem grade definida</p>
+                    @else
+                        <p><i class="fas fa-calendar w-4 text-center mr-1"></i>{{ $class->schedules->count() }} horário(s)</p>
+                        @foreach ($class->schedules->take(3) as $schedule)
+                            <p class="text-xs">{{ $schedule->weekday_label }} · {{ $schedule->time_label }} · {{ $schedule->vacancies }} vagas</p>
+                        @endforeach
+                    @endif
                     @if ($class->drop_in_price)
                         <p><i class="fas fa-ticket w-4 text-center mr-1"></i>Aula avulsa: R$ {{ number_format((float) $class->drop_in_price, 2, ',', '.') }}</p>
                     @endif
-                    <p><i class="fas fa-chalkboard-user w-4 text-center mr-1"></i>{{ $class->teacher?->name ?? 'Sem professor' }}</p>
                 </div>
 
                 <div class="mt-3 flex items-center justify-end gap-1">
+                    <button type="button"
+                            data-class-id="{{ $class->id }}"
+                            class="schedule-class p-2 rounded-lg hover:bg-surface transition-colors text-text-secondary"
+                            title="Definir grade">
+                        <i class="fas fa-calendar-days"></i>
+                    </button>
                     <button type="button"
                             data-class-id="{{ $class->id }}"
                             class="edit-class p-2 rounded-lg hover:bg-surface transition-colors text-text-secondary"
@@ -111,12 +133,12 @@
     <div class="py-12 text-center">
         <i class="fas fa-chalkboard text-4xl text-text-secondary mb-4"></i>
         <h4 class="mb-2 text-lg font-medium">
-            {{ request('search') || request('unit_id') || request('weekday') !== null ? 'Nenhuma turma encontrada' : 'Nenhuma turma cadastrada' }}
+            {{ request('search') || request('unit_id') ? 'Nenhuma turma encontrada' : 'Nenhuma turma cadastrada' }}
         </h4>
         <p class="mb-4 text-text-secondary">
-            {{ request('search') || request('unit_id') || request('weekday') !== null ? 'Tente alterar os filtros da busca' : 'Comece cadastrando a primeira turma' }}
+            {{ request('search') || request('unit_id') ? 'Tente alterar os filtros da busca' : 'Comece cadastrando a primeira turma' }}
         </p>
-        @if (request('search') || request('unit_id') || request('weekday') !== null)
+        @if (request('search') || request('unit_id'))
             <a href="{{ route('admin.classes.index') }}" class="btn-outline">
                 <i class="fas fa-times mr-2"></i>
                 Limpar filtros

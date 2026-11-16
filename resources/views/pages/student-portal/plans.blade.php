@@ -37,6 +37,7 @@
                     <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan">Seu plano</p>
                     <h2 class="mt-1 text-xl font-bold">{{ $activeSubscription->plan_name }}</h2>
                     <p class="mt-1 text-sm text-text-secondary">
+                        <span class="badge badge-info">{{ $activeSubscription->plan_type_label }}</span>
                         {{ $activeSubscription->price_label }} &middot; {{ $activeSubscription->period_label }}
                         @if ($activeSubscription->ends_at)
                             &middot; válido até {{ $activeSubscription->ends_at->format('d/m/Y') }}
@@ -71,7 +72,10 @@
                     <article class="card flex flex-col gap-4" style="border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border));">
                         <div>
                             <div class="flex items-start justify-between gap-2">
-                                <h3 class="text-lg font-bold">{{ $plan->name }}</h3>
+                                <div>
+                                    <h3 class="text-lg font-bold">{{ $plan->name }}</h3>
+                                    <span class="badge badge-info mt-1">{{ $plan->type_label }}</span>
+                                </div>
                                 <span class="badge badge-secondary whitespace-nowrap">{{ $plan->period_label }}</span>
                             </div>
 
@@ -96,8 +100,20 @@
                         <ul class="space-y-2 text-sm text-text-secondary">
                             <li><i class="fas fa-building mr-2 w-4 text-center text-cyan"></i>{{ $plan->unit_access_label }}</li>
                             <li><i class="fas fa-dumbbell mr-2 w-4 text-center text-cyan"></i>{{ $plan->modality_access_label }}</li>
-                            <li><i class="fas fa-calendar-check mr-2 w-4 text-center text-cyan"></i>{{ $plan->weekly_accesses }}x por semana</li>
-                            <li><i class="fas fa-clock mr-2 w-4 text-center text-cyan"></i>{{ $plan->daily_checkins }} check-in(s) por dia</li>
+                            <li>
+                                <i class="fas fa-calendar-check mr-2 w-4 text-center text-cyan"></i>
+                                {{ $plan->weekly_accesses }}x {{ $plan->weekly_access_label }}
+                            </li>
+                            <li>
+                                <i class="fas fa-clock mr-2 w-4 text-center text-cyan"></i>
+                                {{ $plan->daily_checkins }} {{ $plan->daily_checkin_label }}
+                            </li>
+                            @if ($plan->includesClasses())
+                                <li>
+                                    <i class="fas fa-stopwatch mr-2 w-4 text-center text-cyan"></i>
+                                    Check-in de aula a partir de {{ $plan->checkin_advance_minutes }} min antes
+                                </li>
+                            @endif
                         </ul>
 
                         <div class="mt-auto space-y-2">
@@ -212,7 +228,7 @@
         @else
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                 @foreach ($classes as $modalityClasses)
-                    @php($modality = $modalityClasses->first()->modality)
+                    @php($modality = $modalityClasses->first()->schoolClass?->modality)
                     <article class="card space-y-3">
                         <div class="flex items-center gap-3">
                             @if ($modality?->image_url)
@@ -228,18 +244,19 @@
                         </div>
 
                         <ul class="divide-y divide-custom text-sm">
-                            @foreach ($modalityClasses as $class)
+                            @foreach ($modalityClasses as $schedule)
+                                @php($class = $schedule->schoolClass)
                                 <li class="py-2 first:pt-0 last:pb-0">
                                     <div class="flex flex-wrap items-center justify-between gap-2">
-                                        <span class="font-medium">{{ $class->name }}</span>
-                                        <span class="badge badge-success">{{ $class->vacancies }} vagas</span>
+                                        <span class="font-medium">{{ $class?->name ?? 'Aula' }}</span>
+                                        <span class="badge badge-success">{{ $schedule->vacancies }} vagas</span>
                                     </div>
                                     <p class="mt-1 text-xs text-text-secondary">
-                                        {{ $class->unit?->name ?? '—' }}
-                                        &middot; {{ $class->weekday_label }}
-                                        &middot; {{ $class->time_label }}
-                                        @if ($class->teacher)
-                                            &middot; Prof. {{ $class->teacher->name }}
+                                        {{ $class?->unit?->name ?? '—' }}
+                                        &middot; {{ $schedule->weekday_label }}
+                                        &middot; {{ $schedule->time_label }}
+                                        @if ($schedule->person || $schedule->teacher)
+                                            &middot; Prof. {{ $schedule->person?->name ?? $schedule->teacher?->name }}
                                         @endif
                                     </p>
                                 </li>
