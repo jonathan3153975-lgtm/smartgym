@@ -8,7 +8,7 @@
     $whatsappPhone = $phoneDigits !== '' && strlen($phoneDigits) <= 11 ? '55'.$phoneDigits : $phoneDigits;
 @endphp
 
-<div class="container mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+<div class="space-y-6 p-4 sm:p-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <a href="{{ route('students.show', $student) }}" class="text-sm text-text-secondary transition-colors hover:text-cyan">

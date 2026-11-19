@@ -326,16 +326,37 @@ class StudentExperienceTest extends TestCase
             ->assertOk()
             ->assertSee('Ficha técnica')
             ->assertSee('Aluno Experiência')
-            ->assertSee('Grupos musculares treinados')
-            ->assertSee('Acompanhamento de medidas');
+            ->assertSee('Grupos musculares')
+            ->assertSee('Medidas corporais');
 
         $this->get(route('students.workouts', $this->student))
             ->assertOk()
+            ->assertSee('Plano de treino atual')
+            ->assertSee('Treino A')
+            ->assertSee('Detalhes')
+            ->assertSee('Exercícios mais praticados')
+            ->assertSee('Evolução de carga')
             ->assertSee('Treinos aplicados')
             ->assertSee('Treino do aluno')
             ->assertSee('Treinos concluídos')
             ->assertSee('Aplicar treino')
-            ->assertSee('Treino Público');
+            ->assertSee('Treino Público')
+            ->assertSee('appliedPlanExtractModal-'.$personal->id, false)
+            ->assertSee('workoutExtractModal-'.$log->id, false);
+
+        $this->get(route('admin.workout-plans.builder', ['workoutPlan' => $personal, 'from' => 'student']))
+            ->assertOk()
+            ->assertSee('Voltar para treinos do aluno')
+            ->assertSee(route('students.workouts', $this->student));
+
+        $this->get(route('admin.workout-plans.builder', $personal))
+            ->assertOk()
+            ->assertSee('Voltar para treinos')
+            ->assertDontSee('Voltar para treinos do aluno');
+
+        $this->post(route('admin.workout-plans.sessions.store', ['workoutPlan' => $personal, 'from' => 'student']), [
+            'name' => 'Treino B',
+        ])->assertRedirect(route('admin.workout-plans.builder', ['workoutPlan' => $personal, 'from' => 'student']));
 
         $this->post(route('students.workouts.apply', $this->student), [
             'workout_plan_id' => $publicPlan->id,

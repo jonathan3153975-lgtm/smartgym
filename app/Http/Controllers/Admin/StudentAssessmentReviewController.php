@@ -62,7 +62,7 @@ class StudentAssessmentReviewController extends Controller
 
         return redirect()
             ->route('students.show', $student)
-            ->with('success', 'Ficha de avaliação verificada com sucesso.');
+            ->with('success', 'Ficha de avaliação validada com sucesso.');
     }
 
     private function authorizeAccess(Request $request, Student $student, StudentAssessment $assessment): void

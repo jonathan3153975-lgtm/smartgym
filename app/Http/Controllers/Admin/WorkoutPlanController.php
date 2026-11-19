@@ -156,7 +156,7 @@ class WorkoutPlanController extends Controller
         return redirect()->route('admin.workout-plans.index')->with('success', 'Treino removido com sucesso.');
     }
 
-    public function builder(WorkoutPlan $workoutPlan): View
+    public function builder(Request $request, WorkoutPlan $workoutPlan): View
     {
         $this->ensureAccess($workoutPlan);
 
@@ -171,8 +171,13 @@ class WorkoutPlanController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'muscle_group', 'equipment', 'image', 'status']);
 
+        $fromStudent = $request->query('from') === 'student' && $workoutPlan->student_id;
+
         $builderRoutes = [
-            'back' => route('admin.workout-plans.index'),
+            'back' => $fromStudent
+                ? route('students.workouts', $workoutPlan->student_id)
+                : route('admin.workout-plans.index'),
+            'backLabel' => $fromStudent ? 'Voltar para treinos do aluno' : 'Voltar para treinos',
             'sessionStore' => route('admin.workout-plans.sessions.store', $workoutPlan),
             'sessionUpdate' => route('admin.workout-sessions.update', '__ID__'),
             'sessionDestroy' => route('admin.workout-sessions.destroy', '__ID__'),
@@ -181,6 +186,20 @@ class WorkoutPlanController extends Controller
             'exerciseDestroy' => route('admin.workout-exercises.destroy', '__ID__'),
             'exerciseReorder' => route('admin.workout-sessions.exercises.reorder', '__ID__'),
         ];
+
+        if ($fromStudent) {
+            foreach ([
+                'sessionStore',
+                'sessionUpdate',
+                'sessionDestroy',
+                'exerciseStore',
+                'exerciseUpdate',
+                'exerciseDestroy',
+                'exerciseReorder',
+            ] as $routeKey) {
+                $builderRoutes[$routeKey] .= '?from=student';
+            }
+        }
 
         return view('pages.workout-plans.builder', [
             'layout' => 'layouts.app',

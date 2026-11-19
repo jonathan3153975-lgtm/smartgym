@@ -16,7 +16,8 @@ class StudentBodySummary
      *     previous: StudentAssessment|null,
      *     latest_measurement: BodyMeasurement|null,
      *     metrics: array<string, array{label: string, value: string, percent: float|null, percent_label: string|null, direction: string|null}>,
-     *     cards: array<string, array{value: string, comparison: string|null, meta: string}>
+     *     previous_metrics: array<string, array{label: string, value: string, percent: float|null, percent_label: string|null, direction: string|null}>,
+     *     cards: array<string, array{value: string, comparison: string|null, variation?: string|null, variation_percent?: string|null, meta: string}>
      * }
      */
     public static function for(Student $student): array
@@ -28,6 +29,7 @@ class StudentBodySummary
         $first = $student->assessments->last();
         $latestMeasurement = $student->measurements->first();
         $firstMeasurement = $student->measurements->last();
+        $metrics = AssessmentMetrics::for($current, $previous);
 
         $height = self::toFloat($current?->height_cm);
         $weight = self::toFloat($current?->weight_kg) ?? self::toFloat($latestMeasurement?->weight_kg);
@@ -49,11 +51,14 @@ class StudentBodySummary
             'current' => $current,
             'previous' => $previous,
             'latest_measurement' => $latestMeasurement,
-            'metrics' => AssessmentMetrics::for($current, $previous),
+            'metrics' => $metrics,
+            'previous_metrics' => AssessmentMetrics::for($previous, null),
             'cards' => [
                 'weight' => [
                     'value' => self::format($weight, 2, 'kg'),
                     'comparison' => self::comparison($weight, $previousWeight, 2, 'kg'),
+                    'variation' => self::absoluteVariation($weight, $previousWeight, 2, 'kg'),
+                    'variation_percent' => $metrics['weight_kg']['percent_label'] ?? null,
                     'meta' => $current?->submitted_at
                         ? 'Avaliação de '.$current->submitted_at->format('d/m/Y')
                         : ($latestMeasurement?->measured_at
@@ -109,12 +114,27 @@ class StudentBodySummary
             return 'Sem alteração';
         }
 
-        $absolute = ($difference > 0 ? '+' : '').number_format($difference, $decimals, ',', '.')
-            .($unit !== '' ? ' '.$unit : '');
+        $absolute = self::absoluteVariation($current, $previous, $decimals, $unit);
         $percent = $previous !== 0.0 ? round(($difference / $previous) * 100, 1) : null;
 
         return $percent === null
             ? $absolute
             : $absolute.' ('.($percent > 0 ? '+' : '').number_format($percent, 1, ',', '.').'%)';
+    }
+
+    private static function absoluteVariation(?float $current, ?float $previous, int $decimals, string $unit): ?string
+    {
+        if ($current === null || $previous === null) {
+            return null;
+        }
+
+        $difference = $current - $previous;
+
+        if (abs($difference) < 0.0001) {
+            return 'Sem alteração';
+        }
+
+        return ($difference > 0 ? '+' : '').number_format($difference, $decimals, ',', '.')
+            .($unit !== '' ? ' '.$unit : '');
     }
 }

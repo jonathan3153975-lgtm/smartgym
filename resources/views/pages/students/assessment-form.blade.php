@@ -6,7 +6,7 @@
 <div class="container mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <a href="{{ route('students.assessment', $student) }}" class="text-sm text-text-secondary transition-colors hover:text-cyan">
+            <a href="{{ route('students.technical-sheet', $student) }}" class="text-sm text-text-secondary transition-colors hover:text-cyan">
                 <i class="fas fa-arrow-left mr-1"></i>
                 Voltar para a ficha
             </a>
@@ -32,7 +32,7 @@
         @include('pages.student-portal.assessment._form')
 
         <div class="flex flex-col-reverse justify-end gap-3 sm:flex-row">
-            <a href="{{ route('students.assessment', $student) }}" class="btn-outline justify-center">
+            <a href="{{ route('students.technical-sheet', $student) }}" class="btn-outline justify-center">
                 Cancelar
             </a>
             <button type="submit" class="btn-primary">

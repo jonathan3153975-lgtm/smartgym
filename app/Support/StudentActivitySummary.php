@@ -22,6 +22,7 @@ class StudentActivitySummary
      *     activity_days: int,
      *     total_sets: int,
      *     workout_logs: array<int, array{date: string, name: string, duration: string, sets: int, volume: string}>,
+     *     workout_extracts: array<int, array{id: int, date: string|null, name: string, duration: string, volume: string, exercises: array<int, array{name: string, muscle_group: string, max_weight: float, max_weight_label: string, previous_load_label: string|null, load_increased: bool, sets: array<int, array{number: int, reps: int|null, weight_label: string|null, distance_label: string|null, cardio_label: string|null}>}>}>,
      *     muscle_groups: array<int, array{group: string, label: string, reps: int, percent: int}>,
      *     muscle_group_exercises: array<string, array<int, array{name: string, reps: int, max_weight_label: string, percent: int}>>
      * }
@@ -65,6 +66,7 @@ class StudentActivitySummary
             'activity_days' => $activityDates->count(),
             'total_sets' => $allSets->count(),
             'workout_logs' => self::workoutLogs($workoutLogs),
+            'workout_extracts' => self::workoutExtracts($workoutLogs),
             'muscle_groups' => self::muscleGroups($allSets, $totalReps),
             'muscle_group_exercises' => self::muscleGroupExercises($allSets),
         ];
@@ -84,6 +86,73 @@ class StudentActivitySummary
                 'sets' => $log->sets->count(),
                 'volume' => number_format($log->total_volume, 2, ',', '.').' kg',
             ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Detailed workout extract between assessments, including load evolution per exercise.
+     *
+     * @param  Collection<int, WorkoutLog>  $logs
+     * @return array<int, array{id: int, date: string|null, name: string, duration: string, volume: string, exercises: array<int, array{name: string, muscle_group: string, max_weight: float, max_weight_label: string, previous_load_label: string|null, load_increased: bool, sets: array<int, array{number: int, reps: int|null, weight_label: string|null, distance_label: string|null, cardio_label: string|null}>}>}>
+     */
+    private static function workoutExtracts(Collection $logs): array
+    {
+        $previousLoads = [];
+
+        return $logs
+            ->sortBy('started_at')
+            ->map(function (WorkoutLog $log) use (&$previousLoads) {
+                $exercises = $log->sets
+                    ->groupBy('exercise_name')
+                    ->map(function (Collection $sets, string $name) use (&$previousLoads) {
+                        $maxWeight = (float) $sets->max(fn ($set) => (float) $set->weight_kg);
+                        $previousLoad = $previousLoads[$name] ?? null;
+                        $loadIncreased = $previousLoad !== null && $maxWeight > $previousLoad + 0.0001;
+
+                        $previousLoads[$name] = max($previousLoad ?? 0.0, $maxWeight);
+
+                        return [
+                            'name' => $name,
+                            'muscle_group' => Exercise::MUSCLE_GROUPS[$sets->first()->muscle_group] ?? $sets->first()->muscle_group,
+                            'max_weight' => $maxWeight,
+                            'max_weight_label' => $maxWeight > 0 ? number_format($maxWeight, 2, ',', '.').' kg' : '—',
+                            'previous_load_label' => $previousLoad !== null && $previousLoad > 0
+                                ? number_format($previousLoad, 2, ',', '.').' kg'
+                                : null,
+                            'load_increased' => $loadIncreased,
+                            'sets' => $sets
+                                ->sortBy('set_number')
+                                ->map(fn ($set) => [
+                                    'number' => (int) $set->set_number,
+                                    'reps' => $set->reps !== null ? (int) $set->reps : null,
+                                    'weight_label' => $set->weight_kg !== null
+                                        ? number_format((float) $set->weight_kg, 2, ',', '.').' kg'
+                                        : null,
+                                    'distance_label' => $set->distance_km !== null
+                                        ? number_format((float) $set->distance_km, 3, ',', '.').' km'
+                                        : null,
+                                    'cardio_label' => $set->cardio_seconds
+                                        ? sprintf('%d min %02d s', intdiv((int) $set->cardio_seconds, 60), (int) $set->cardio_seconds % 60)
+                                        : null,
+                                ])
+                                ->values()
+                                ->all(),
+                        ];
+                    })
+                    ->values()
+                    ->all();
+
+                return [
+                    'id' => $log->id,
+                    'date' => $log->started_at?->format('d/m/Y H:i'),
+                    'name' => $log->session_name,
+                    'duration' => $log->duration_label,
+                    'volume' => number_format($log->total_volume, 2, ',', '.').' kg',
+                    'exercises' => $exercises,
+                ];
+            })
+            ->reverse()
             ->values()
             ->all();
     }

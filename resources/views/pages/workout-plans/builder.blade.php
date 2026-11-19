@@ -8,7 +8,7 @@
         <div>
             <a href="{{ $builderRoutes['back'] }}" class="text-sm text-text-secondary transition-colors hover:text-cyan">
                 <i class="fas fa-arrow-left mr-1"></i>
-                Voltar para treinos
+                {{ $builderRoutes['backLabel'] ?? 'Voltar para treinos' }}
             </a>
             <h1 class="mt-1 text-2xl font-bold">{{ $workoutPlan->name }}</h1>
             <p class="mt-1 text-text-secondary">

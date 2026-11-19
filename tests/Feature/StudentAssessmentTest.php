@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\ClassSchedule;
 use App\Models\MembershipPlan;
 use App\Models\Network;
+use App\Models\Role;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\StudentAccount;
@@ -13,6 +14,7 @@ use App\Models\StudentSubscription;
 use App\Models\StudentUnit;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\UserVinculo;
 use App\Models\WorkoutLog;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -166,7 +168,7 @@ class StudentAssessmentTest extends TestCase
         $this->post(route('students.assessments.store', $this->student), $this->payload([
             'weight_kg' => '82,500',
             'height_cm' => '181,00',
-        ]))->assertRedirect(route('students.assessment', $this->student));
+        ]))->assertRedirect(route('students.technical-sheet', $this->student));
 
         $assessment = $this->student->assessment;
 
@@ -380,9 +382,9 @@ class StudentAssessmentTest extends TestCase
         ]))->assertRedirect(route('student.portal.assessment.show', $this->network));
 
         $this->actingAs($this->networkAdmin)
-            ->get(route('students.assessment', $this->student))
+            ->get(route('students.technical-sheet', $this->student))
             ->assertOk()
-            ->assertSee('Ficha de avaliação')
+            ->assertSee('Ficha técnica')
             ->assertSee('Desempenho esportivo')
             ->assertSee('Aluno Avaliação')
             ->assertSee('Questionário de prontidão');
@@ -405,7 +407,7 @@ class StudentAssessmentTest extends TestCase
         ]);
 
         $this->actingAs($this->networkAdmin)
-            ->get(route('students.assessment', $otherStudent))
+            ->get(route('students.technical-sheet', $otherStudent))
             ->assertNotFound();
     }
 
@@ -453,7 +455,7 @@ class StudentAssessmentTest extends TestCase
             ->assertSee('Plano Avaliação')
             ->assertSee('Unidade de referência')
             ->assertSee('Medidas corporais')
-            ->assertSee('Verificar avaliação')
+            ->assertSee('Validar avaliação')
             ->assertSee('-2,5%')
             ->assertDontSee('Histórico')
             ->assertDontSee('Nova avaliação');
@@ -496,12 +498,13 @@ class StudentAssessmentTest extends TestCase
 
         $this->actingAs($this->networkAdmin);
 
-        $this->get(route('students.assessment', $this->student))
+        $this->get(route('students.technical-sheet', $this->student))
             ->assertOk()
             ->assertSee('Peso atual')
             ->assertSee('78,00 kg')
-            ->assertSee('-2,00 kg (-2,5%)')
-            ->assertSee('Variação total')
+            ->assertSee('-2,00 kg')
+            ->assertSee('-2,5%')
+            ->assertSee('Variação de peso')
             ->assertSee('IMC')
             ->assertSee('24,1')
             ->assertSee('Gordura / cintura')
@@ -563,12 +566,30 @@ class StudentAssessmentTest extends TestCase
 
         $this->get(route('students.technical-sheet', $this->student))
             ->assertOk()
-            ->assertSee('Acompanhamento de medidas')
+            ->assertSee('Nova avaliação')
+            ->assertSee('Imprimir')
+            ->assertSee('Validar avaliação')
+            ->assertSee('Concluída')
+            ->assertSee('A verificar')
+            ->assertSee('Medidas corporais')
             ->assertSee('78,00 kg')
             ->assertSee('Supino reto')
             ->assertSee('40 kg')
             ->assertSee('technicalMuscleGroupModal-chest', false)
+            ->assertSee('Frequência semanal')
+            ->assertSee('Semana 1')
+            ->assertSee('Treinos das últimas 4 semanas')
+            ->assertSee('Extrato do treino')
+            ->assertSee('workoutExtractModal-'.$log->id, false)
+            ->assertSee('Histórico de avaliações')
             ->assertDontSee('Treinos concluídos');
+
+        $this->get(route('students.technical-sheet.print', $this->student))
+            ->assertOk()
+            ->assertSee('Relatório de Avaliação e Atividades Físicas')
+            ->assertSee('Aluno Avaliação')
+            ->assertSee('Atividades físicas entre avaliações')
+            ->assertSee('Grupos musculares treinados');
 
         $this->get(route('students.workouts', $this->student))
             ->assertOk()
@@ -664,6 +685,25 @@ class StudentAssessmentTest extends TestCase
             'submitted_at' => now()->subDays(2),
         ]);
 
+        $previousLog = WorkoutLog::create([
+            'network_id' => $this->network->id,
+            'student_id' => $this->student->id,
+            'session_name' => 'Treino de força anterior',
+            'status' => WorkoutLog::STATUS_COMPLETED,
+            'started_at' => now()->subDays(20),
+            'completed_at' => now()->subDays(20)->addHour(),
+            'duration_seconds' => 3600,
+        ]);
+
+        $previousLog->sets()->create([
+            'exercise_name' => 'Supino reto',
+            'muscle_group' => 'chest',
+            'set_number' => 1,
+            'reps' => 10,
+            'weight_kg' => 30,
+            'completed' => true,
+        ]);
+
         $log = WorkoutLog::create([
             'network_id' => $this->network->id,
             'student_id' => $this->student->id,
@@ -687,11 +727,15 @@ class StudentAssessmentTest extends TestCase
 
         $this->get(route('students.assessments.verify', [$this->student, $current]))
             ->assertOk()
-            ->assertSee('Verificar avaliação')
+            ->assertSee('Validar avaliação')
             ->assertSee('Extrato de atividade')
             ->assertSee('Treino de força')
             ->assertSee('Supino reto')
             ->assertSee('Peito')
+            ->assertSee('Extrato dos treinos')
+            ->assertSee('activityWorkoutExtractModal', false)
+            ->assertSee('Carga aumentou')
+            ->assertSee('anterior 30,00 kg')
             ->assertSee('Alterado')
             ->assertSee('Anterior: Perda de peso');
 
@@ -731,6 +775,52 @@ class StudentAssessmentTest extends TestCase
         $this->actingAs($receptionist)
             ->get(route('students.assessments.verify', [$this->student, $assessment]))
             ->assertForbidden();
+    }
+
+    /** @test */
+    public function test_instructor_role_can_open_and_see_the_assessment_validation(): void
+    {
+        $this->activateSubscription();
+
+        $assessment = StudentAssessment::create([
+            'network_id' => $this->network->id,
+            'student_id' => $this->student->id,
+            'status' => StudentAssessment::STATUS_COMPLETED,
+            'goal' => 'weight_loss',
+            'experience_level' => 'beginner',
+            'training_frequency' => 3,
+            'parq_answers' => array_fill_keys(array_keys(StudentAssessment::PARQ_QUESTIONS), false),
+            'submitted_at' => now(),
+        ]);
+
+        $instructorRole = Role::where('name', 'instructor')->where('level', 'unit')->firstOrFail();
+
+        $trainer = User::create([
+            'name' => 'Treinador Teste',
+            'email' => 'treinador.teste@exemplo.com',
+            'password' => 'SenhaTreinador123',
+        ]);
+        $trainer->forceFill(['email_verified_at' => now()])->save();
+
+        UserVinculo::create([
+            'user_id' => $trainer->id,
+            'network_id' => $this->network->id,
+            'unit_id' => $this->unit->id,
+            'role_id' => $instructorRole->id,
+            'status' => 'active',
+            'starts_at' => now()->toDateString(),
+        ]);
+
+        $this->assertTrue($trainer->canVerifyAssessments());
+
+        $this->actingAs($trainer)
+            ->get(route('students.technical-sheet', $this->student))
+            ->assertOk()
+            ->assertSee('Validar avaliação');
+
+        $this->get(route('students.assessments.verify', [$this->student, $assessment]))
+            ->assertOk()
+            ->assertSee('Validar avaliação');
     }
 
     private function login(): void

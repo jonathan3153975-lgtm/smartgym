@@ -29,9 +29,7 @@ class WorkoutBuilderController extends Controller
 
         $workoutPlan->sessions()->create($validated);
 
-        return redirect()
-            ->route('admin.workout-plans.builder', $workoutPlan)
-            ->with('success', 'Sessão de treino adicionada.');
+        return $this->redirectToBuilder($request, $workoutPlan, 'Sessão de treino adicionada.');
     }
 
     public function updateSession(Request $request, WorkoutSession $workoutSession): RedirectResponse
@@ -45,21 +43,17 @@ class WorkoutBuilderController extends Controller
 
         $workoutSession->update($validated);
 
-        return redirect()
-            ->route('admin.workout-plans.builder', $workoutSession->plan)
-            ->with('success', 'Sessão de treino atualizada.');
+        return $this->redirectToBuilder($request, $workoutSession->plan, 'Sessão de treino atualizada.');
     }
 
-    public function destroySession(WorkoutSession $workoutSession): RedirectResponse
+    public function destroySession(Request $request, WorkoutSession $workoutSession): RedirectResponse
     {
         $this->ensureSessionAccess($workoutSession);
 
         $plan = $workoutSession->plan;
         $workoutSession->delete();
 
-        return redirect()
-            ->route('admin.workout-plans.builder', $plan)
-            ->with('success', 'Sessão de treino removida.');
+        return $this->redirectToBuilder($request, $plan, 'Sessão de treino removida.');
     }
 
     public function storeExercise(Request $request, WorkoutSession $workoutSession): RedirectResponse|JsonResponse
@@ -88,9 +82,7 @@ class WorkoutBuilderController extends Controller
             ]);
         }
 
-        return redirect()
-            ->route('admin.workout-plans.builder', $workoutSession->plan)
-            ->with('success', 'Exercício adicionado à sessão.');
+        return $this->redirectToBuilder($request, $workoutSession->plan, 'Exercício adicionado à sessão.');
     }
 
     public function updateExercise(Request $request, WorkoutExercise $workoutExercise): RedirectResponse
@@ -105,12 +97,10 @@ class WorkoutBuilderController extends Controller
 
         $workoutExercise->update($validated);
 
-        return redirect()
-            ->route('admin.workout-plans.builder', $workoutExercise->session->plan)
-            ->with('success', 'Exercício atualizado.');
+        return $this->redirectToBuilder($request, $workoutExercise->session->plan, 'Exercício atualizado.');
     }
 
-    public function destroyExercise(WorkoutExercise $workoutExercise): RedirectResponse
+    public function destroyExercise(Request $request, WorkoutExercise $workoutExercise): RedirectResponse
     {
         $this->ensureExerciseAccess($workoutExercise);
         $workoutExercise->loadMissing('session.plan');
@@ -118,9 +108,7 @@ class WorkoutBuilderController extends Controller
         $plan = $workoutExercise->session->plan;
         $workoutExercise->delete();
 
-        return redirect()
-            ->route('admin.workout-plans.builder', $plan)
-            ->with('success', 'Exercício removido da sessão.');
+        return $this->redirectToBuilder($request, $plan, 'Exercício removido da sessão.');
     }
 
     public function reorderExercises(Request $request, WorkoutSession $workoutSession): JsonResponse
@@ -143,6 +131,17 @@ class WorkoutBuilderController extends Controller
         }
 
         return response()->json(['success' => true]);
+    }
+
+    private function redirectToBuilder(Request $request, WorkoutPlan $plan, string $message): RedirectResponse
+    {
+        $url = route('admin.workout-plans.builder', $plan);
+
+        if ($request->query('from') === 'student') {
+            $url .= '?from=student';
+        }
+
+        return redirect($url)->with('success', $message);
     }
 
     /**

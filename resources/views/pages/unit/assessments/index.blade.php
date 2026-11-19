@@ -112,7 +112,7 @@
                                             <i class="fas fa-plus"></i>
                                         </a>
                                         @if ($assessment)
-                                            <a href="{{ route('students.assessment', $student) }}" class="btn-outline" title="Ver ficha">
+                                            <a href="{{ route('students.technical-sheet', $student) }}" class="btn-outline" title="Ver ficha">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             @if (auth()->user()?->canVerifyAssessments())

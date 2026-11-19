@@ -15,7 +15,6 @@ use App\Support\BrazilianDocument;
 use App\Support\NetworkPolicy;
 use App\Support\StudentAccessSummary;
 use App\Support\StudentAssessmentForm;
-use App\Support\StudentBodySummary;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -213,17 +212,6 @@ class StudentController extends Controller
         ];
     }
 
-    public function assessment(Student $student): View
-    {
-        abort_unless($this->tenant()->canAccessStudent($student), 404);
-
-        $student->load(['assessment', 'assessments', 'units.unit']);
-
-        $bodySummary = StudentBodySummary::for($student);
-
-        return view('pages.students.assessment', compact('student', 'bodySummary'));
-    }
-
     public function createAssessment(Request $request, Student $student): View
     {
         abort_unless($this->tenant()->canAccessStudent($student), 404);
@@ -264,7 +252,7 @@ class StudentController extends Controller
         ]));
 
         return redirect()
-            ->route('students.assessment', $student)
+            ->route('students.technical-sheet', $student)
             ->with('success', 'Nova avaliação registrada para o aluno.');
     }
 

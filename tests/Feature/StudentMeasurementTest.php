@@ -239,11 +239,11 @@ class StudentMeasurementTest extends TestCase
         $this->actingAs($this->networkAdmin)
             ->get(route('students.technical-sheet', $this->student))
             ->assertOk()
-            ->assertSee('Acompanhamento de medidas')
+            ->assertSee('Medidas corporais')
             ->assertSee('Aluno Medidas')
             ->assertSee('80,00 kg');
 
-        $this->get(route('students.assessment', $this->student))
+        $this->get(route('students.technical-sheet', $this->student))
             ->assertOk()
             ->assertSee('Peso atual')
             ->assertSee('80,00 kg');

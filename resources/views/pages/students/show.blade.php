@@ -461,12 +461,12 @@
                             @if (auth()->user()?->canVerifyAssessments())
                                 <a href="{{ route('students.assessments.verify', [$student, $assessment]) }}" class="btn-primary">
                                     <i class="fas fa-user-check mr-2"></i>
-                                    {{ $assessment->reviewed_at ? 'Revisar verificação' : 'Verificar avaliação' }}
+                                    {{ $assessment->reviewed_at ? 'Revalidar avaliação' : 'Validar avaliação' }}
                                 </a>
                             @endif
-                            <a href="{{ route('students.assessment', $student) }}" class="btn-outline">
+                            <a href="{{ route('students.technical-sheet', $student) }}" class="btn-outline">
                                 <i class="fas fa-eye mr-2"></i>
-                                Ver ficha completa
+                                Ver ficha técnica
                             </a>
                         </div>
                     @else

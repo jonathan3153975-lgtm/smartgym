@@ -1,11 +1,36 @@
 @extends('layouts.app')
 
-@section('title', 'Verificar avaliação - '.$student->name)
+@section('title', 'Validar avaliação - '.$student->name)
 
 @section('content')
 @php
     $parq = old('parq_answers', $assessment->parq_answers ?? []);
     $metricCard = 'rounded-xl border border-custom bg-bg-secondary p-3';
+
+    $palette = [
+        'var(--color-primary)',
+        'var(--color-info)',
+        'var(--color-success)',
+        'var(--color-warning)',
+        'var(--color-danger)',
+        'var(--color-accent)',
+        'var(--color-purple-neon)',
+    ];
+    $circumference = 2 * M_PI * 42;
+    $totalActivityPercent = max(1, array_sum(array_column($activity['muscle_groups'], 'percent')));
+    $activityDonutOffset = 0;
+    $activityDonutSegments = [];
+
+    foreach ($activity['muscle_groups'] as $index => $group) {
+        $length = ($group['percent'] / $totalActivityPercent) * $circumference;
+        $activityDonutSegments[] = [
+            'group' => $group,
+            'color' => $palette[$index % count($palette)],
+            'length' => $length,
+            'offset' => $activityDonutOffset,
+        ];
+        $activityDonutOffset += $length;
+    }
 @endphp
 
 <div class="container mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
@@ -15,7 +40,7 @@
                 <i class="fas fa-arrow-left mr-1"></i>
                 Voltar para o aluno
             </a>
-            <h1 class="mt-1 text-2xl font-bold">Verificar avaliação</h1>
+            <h1 class="mt-1 text-2xl font-bold">Validar avaliação</h1>
             <p class="mt-1 text-text-secondary">{{ $student->name }}</p>
             <p class="mt-1 text-xs text-text-secondary">
                 Enviada em {{ $assessment->submitted_at?->format('d/m/Y H:i') ?? '—' }}
@@ -58,6 +83,7 @@
         @method('PUT')
 
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div class="space-y-6">
             <section class="card space-y-4">
                 <h2 class="flex items-center gap-2 font-semibold">
                     <i class="fas fa-bullseye text-cyan"></i>
@@ -191,6 +217,90 @@
                     </div>
                 </div>
             </section>
+            </div>
+
+            <section class="card space-y-4">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <h2 class="flex items-center gap-2 font-semibold">
+                            <i class="fas fa-chart-simple text-cyan"></i>
+                            Extrato de atividade
+                        </h2>
+                        <p class="mt-1 text-xs text-text-secondary">
+                            Período entre {{ $activity['from']->format('d/m/Y') }} e {{ $activity['to']->format('d/m/Y') }}.
+                        </p>
+                    </div>
+                    <button type="button" onclick="openActivityWorkoutExtractModal()" class="btn-outline self-start">
+                        <i class="fas fa-eye mr-2"></i>
+                        Extrato dos treinos
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="{{ $metricCard }}">
+                        <p class="text-xs text-text-secondary">Treinos concluídos</p>
+                        <p class="mt-1 text-2xl font-bold">{{ $activity['workouts'] }}</p>
+                    </div>
+                    <div class="{{ $metricCard }}">
+                        <p class="text-xs text-text-secondary">Aulas realizadas</p>
+                        <p class="mt-1 text-2xl font-bold">{{ $activity['classes'] }}</p>
+                    </div>
+                    <div class="{{ $metricCard }}">
+                        <p class="text-xs text-text-secondary">Check-ins</p>
+                        <p class="mt-1 text-2xl font-bold">{{ $activity['checkins'] }}</p>
+                    </div>
+                    <div class="{{ $metricCard }}">
+                        <p class="text-xs text-text-secondary">Dias ativos</p>
+                        <p class="mt-1 text-2xl font-bold">{{ $activity['activity_days'] }}</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="flex items-center gap-2 text-sm font-semibold">
+                        <i class="fas fa-layer-group text-cyan"></i>
+                        Grupos musculares treinados
+                    </h3>
+
+                    @if ($activity['muscle_groups'] !== [])
+                        <div class="relative mx-auto mt-3 h-40 w-40">
+                            <svg viewBox="0 0 100 100" class="h-full w-full -rotate-90" role="img" aria-label="Distribuição por grupos musculares no período">
+                                <circle cx="50" cy="50" r="42" fill="none" stroke="var(--color-border)" stroke-width="16"></circle>
+                                @foreach ($activityDonutSegments as $segment)
+                                    <circle cx="50" cy="50" r="42" fill="none"
+                                            stroke="{{ $segment['color'] }}"
+                                            stroke-width="16"
+                                            stroke-dasharray="0 {{ $circumference }}"
+                                            data-verify-dasharray="{{ $segment['length'] }} {{ $circumference - $segment['length'] }}"
+                                            stroke-dashoffset="{{ -$segment['offset'] }}"
+                                            class="donut-segment cursor-pointer transition-opacity hover:opacity-75"
+                                            onclick="openVerifyMuscleGroupModal(@js($segment['group']['group']))">
+                                        <title>{{ $segment['group']['label'] }}: {{ $segment['group']['percent'] }}%</title>
+                                    </circle>
+                                @endforeach
+                            </svg>
+                            <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                                <p class="text-2xl font-bold">{{ count($activity['muscle_groups']) }}</p>
+                                <p class="text-[0.62rem] uppercase tracking-wider text-text-secondary">grupos</p>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 space-y-1.5">
+                            @foreach ($activityDonutSegments as $segment)
+                                <button type="button" onclick="openVerifyMuscleGroupModal(@js($segment['group']['group']))"
+                                        class="interactive-item flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-custom bg-bg-secondary px-3 py-2 text-left text-sm transition-colors hover:border-cyan">
+                                    <span class="flex min-w-0 items-center gap-2">
+                                        <span class="h-2.5 w-2.5 flex-shrink-0 rounded-full" style="background: {{ $segment['color'] }};"></span>
+                                        <span class="truncate">{{ $segment['group']['label'] }}</span>
+                                    </span>
+                                    <span class="flex-shrink-0 text-text-secondary">{{ $segment['group']['percent'] }}%</span>
+                                </button>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="mt-2 text-sm text-text-secondary">Nenhuma série registrada no período.</p>
+                    @endif
+                </div>
+            </section>
 
             <section class="card space-y-4 md:col-span-2">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -271,7 +381,7 @@
                 </div>
             </section>
 
-            <section class="card space-y-4">
+            <section class="card space-y-4 md:col-span-2">
                 <h2 class="flex items-center gap-2 font-semibold">
                     <i class="fas fa-address-book text-cyan"></i>
                     Contato de emergência
@@ -318,108 +428,11 @@
             </section>
         </div>
 
-        <section class="card space-y-4">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                    <h2 class="flex items-center gap-2 font-semibold">
-                        <i class="fas fa-chart-simple text-cyan"></i>
-                        Extrato de atividade
-                    </h2>
-                    <p class="mt-1 text-xs text-text-secondary">
-                        Período entre {{ $activity['from']->format('d/m/Y') }} e {{ $activity['to']->format('d/m/Y') }}.
-                    </p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div class="{{ $metricCard }}">
-                    <p class="text-xs text-text-secondary">Treinos concluídos</p>
-                    <p class="mt-1 text-2xl font-bold">{{ $activity['workouts'] }}</p>
-                </div>
-                <div class="{{ $metricCard }}">
-                    <p class="text-xs text-text-secondary">Aulas realizadas</p>
-                    <p class="mt-1 text-2xl font-bold">{{ $activity['classes'] }}</p>
-                </div>
-                <div class="{{ $metricCard }}">
-                    <p class="text-xs text-text-secondary">Check-ins</p>
-                    <p class="mt-1 text-2xl font-bold">{{ $activity['checkins'] }}</p>
-                </div>
-                <div class="{{ $metricCard }}">
-                    <p class="text-xs text-text-secondary">Dias ativos</p>
-                    <p class="mt-1 text-2xl font-bold">{{ $activity['activity_days'] }}</p>
-                </div>
-            </div>
-
-            <div>
-                <h3 class="flex items-center gap-2 text-sm font-semibold">
-                    <i class="fas fa-dumbbell text-cyan"></i>
-                    Extrato de treinos
-                </h3>
-
-                @if ($activity['workout_logs'] !== [])
-                    <div class="mt-2 overflow-x-auto">
-                        <table class="table-custom">
-                            <thead>
-                                <tr>
-                                    <th>Data</th>
-                                    <th>Treino</th>
-                                    <th>Duração</th>
-                                    <th class="text-right">Séries</th>
-                                    <th class="text-right">Volume</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($activity['workout_logs'] as $log)
-                                    <tr>
-                                        <td class="font-medium">{{ $log['date'] }}</td>
-                                        <td>{{ $log['name'] }}</td>
-                                        <td>{{ $log['duration'] }}</td>
-                                        <td class="text-right">{{ $log['sets'] }}</td>
-                                        <td class="text-right">{{ $log['volume'] }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @else
-                    <p class="mt-2 text-sm text-text-secondary">Nenhum treino concluído no período.</p>
-                @endif
-            </div>
-
-            <div>
-                <h3 class="flex items-center gap-2 text-sm font-semibold">
-                    <i class="fas fa-layer-group text-cyan"></i>
-                    Grupos musculares treinados
-                </h3>
-
-                @if ($activity['muscle_groups'] !== [])
-                    <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        @foreach ($activity['muscle_groups'] as $group)
-                            <button type="button" onclick="openVerifyMuscleGroupModal(@js($group['group']))"
-                                    class="w-full rounded-xl border border-custom bg-bg-secondary p-2.5 text-left transition-colors hover:border-cyan">
-                                <div class="flex items-center justify-between gap-2 text-xs">
-                                    <span class="truncate font-medium">{{ $group['label'] }}</span>
-                                    <span class="shrink-0 text-text-secondary">{{ $group['percent'] }}%</span>
-                                </div>
-                                <div class="progress mt-1 h-2">
-                                    <div class="progress-bar" role="progressbar"
-                                         style="width: {{ max(4, $group['percent']) }}%;"
-                                         aria-valuenow="{{ $group['percent'] }}" aria-valuemin="0" aria-valuemax="100"></div>
-                                </div>
-                            </button>
-                        @endforeach
-                    </div>
-                @else
-                    <p class="mt-2 text-sm text-text-secondary">Nenhuma série registrada no período.</p>
-                @endif
-            </div>
-        </section>
-
         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <a href="{{ route('students.show', $student) }}" class="btn-outline justify-center">Cancelar</a>
             <button type="submit" class="btn-primary justify-center">
                 <i class="fas fa-user-check mr-2"></i>
-                Verificar avaliação
+                Validar avaliação
             </button>
         </div>
     </form>
@@ -466,6 +479,95 @@
     </div>
 @endforeach
 
+<div id="activityWorkoutExtractModal" class="modal-overlay hidden" role="dialog" aria-modal="true"
+     aria-labelledby="activityWorkoutExtractTitle">
+    <div class="modal-content modal-content-lg flex max-h-[88vh] flex-col">
+        <div class="mb-4 flex items-start justify-between gap-3">
+            <div>
+                <h2 id="activityWorkoutExtractTitle" class="text-xl font-bold">Extrato dos treinos</h2>
+                <p class="mt-1 text-xs text-text-secondary">
+                    Período entre {{ $activity['from']->format('d/m/Y') }} e {{ $activity['to']->format('d/m/Y') }}.
+                </p>
+            </div>
+            <button type="button" onclick="closeActivityWorkoutExtractModal()"
+                    class="rounded-lg p-2 text-text-secondary hover:bg-surface" aria-label="Fechar">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+            @forelse ($activity['workout_extracts'] as $extract)
+                <section class="rounded-xl border border-custom p-3">
+                    <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p class="font-medium">{{ $extract['name'] }}</p>
+                            <p class="text-xs text-text-secondary">
+                                {{ $extract['date'] ?? '—' }}
+                                &middot; {{ $extract['duration'] }}
+                                &middot; {{ $extract['volume'] }}
+                            </p>
+                        </div>
+                        <span class="badge badge-info">{{ count($extract['exercises']) }} exercício(s)</span>
+                    </div>
+
+                    <div class="mt-2 space-y-2">
+                        @forelse ($extract['exercises'] as $exercise)
+                            <div class="rounded-lg border border-custom bg-bg-secondary p-2.5">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-medium">{{ $exercise['name'] }}</p>
+                                        <p class="text-xs text-text-secondary">{{ $exercise['muscle_group'] }}</p>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                                        <span class="{{ $exercise['load_increased'] ? 'font-semibold text-green' : 'text-text-secondary' }}">
+                                            {{ $exercise['max_weight_label'] }}
+                                        </span>
+                                        @if ($exercise['load_increased'])
+                                            <span class="badge badge-success">Carga aumentou</span>
+                                        @endif
+                                        @if ($exercise['previous_load_label'])
+                                            <span class="text-text-secondary">anterior {{ $exercise['previous_load_label'] }}</span>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                @if ($exercise['sets'] !== [])
+                                    <div class="mt-2 flex flex-wrap gap-1.5">
+                                        @foreach ($exercise['sets'] as $set)
+                                            <span class="badge badge-secondary">
+                                                {{ $set['number'] }}ª ·
+                                                @if ($set['cardio_label'])
+                                                    {{ $set['cardio_label'] }}
+                                                    @if ($set['distance_label'])
+                                                        &middot; {{ $set['distance_label'] }}
+                                                    @endif
+                                                @else
+                                                    {{ $set['reps'] ?? '—' }} reps
+                                                    @if ($set['weight_label'])
+                                                        &middot; {{ $set['weight_label'] }}
+                                                    @endif
+                                                @endif
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        @empty
+                            <p class="text-sm text-text-secondary">Nenhum exercício concluído neste treino.</p>
+                        @endforelse
+                    </div>
+                </section>
+            @empty
+                <p class="text-sm text-text-secondary">Nenhum treino concluído no período.</p>
+            @endforelse
+        </div>
+
+        <div class="mt-3 flex justify-end border-t border-custom pt-3">
+            <button type="button" onclick="closeActivityWorkoutExtractModal()" class="btn-outline">Fechar</button>
+        </div>
+    </div>
+</div>
+
 <script>
     (function () {
         window.openVerifyMuscleGroupModal = function (group) {
@@ -489,6 +591,39 @@
             document.body.style.overflow = '';
         };
 
+        window.openActivityWorkoutExtractModal = function () {
+            const modal = document.getElementById('activityWorkoutExtractModal');
+
+            if (!modal) {
+                return;
+            }
+
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        };
+
+        window.closeActivityWorkoutExtractModal = function () {
+            const modal = document.getElementById('activityWorkoutExtractModal');
+
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+
+            document.body.style.overflow = '';
+        };
+
+        document.getElementById('activityWorkoutExtractModal')?.addEventListener('click', function (event) {
+            if (event.target === this) {
+                closeActivityWorkoutExtractModal();
+            }
+        });
+
+        window.addEventListener('load', function () {
+            document.querySelectorAll('[data-verify-dasharray]').forEach(function (segment) {
+                segment.style.strokeDasharray = segment.dataset.verifyDasharray;
+            });
+        });
+
         document.querySelectorAll('[data-verify-muscle-group-modal]').forEach(function (modal) {
             modal.addEventListener('click', function (event) {
                 if (event.target === modal) {
@@ -505,6 +640,12 @@
             document.querySelectorAll('[data-verify-muscle-group-modal]:not(.hidden)').forEach(function (modal) {
                 closeVerifyMuscleGroupModal(modal.dataset.verifyMuscleGroupModal);
             });
+
+            const activityModal = document.getElementById('activityWorkoutExtractModal');
+
+            if (activityModal && !activityModal.classList.contains('hidden')) {
+                closeActivityWorkoutExtractModal();
+            }
         });
     })();
 </script>

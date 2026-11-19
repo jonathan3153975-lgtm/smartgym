@@ -105,6 +105,22 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function canVerifyAssessments(): bool
     {
+        $role = $this->getActiveVinculo()?->role;
+        $roleName = mb_strtolower((string) $role?->name);
+        $roleLabel = mb_strtolower((string) $role?->display_name);
+
+        $isTrainerRole = in_array($roleName, ['instructor', 'personal_trainer'], true)
+            || str_contains($roleName, 'instructor')
+            || str_contains($roleName, 'trainer')
+            || str_contains($roleLabel, 'instrutor')
+            || str_contains($roleLabel, 'treinador')
+            || str_contains($roleLabel, 'professor')
+            || str_contains($roleLabel, 'personal');
+
+        if ($isTrainerRole) {
+            return true;
+        }
+
         return $this->hasPermission('workouts.manage')
             || ($this->person?->isTeacher() ?? false);
     }

@@ -490,9 +490,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{student}/edit-data', [StudentController::class, 'editData'])
             ->middleware('can:students.edit')
             ->name('edit-data');
-        Route::get('/{student}/assessment', [StudentController::class, 'assessment'])
-            ->middleware('can:students.view')
-            ->name('assessment');
         Route::get('/{student}/assessments/create', [StudentController::class, 'createAssessment'])
             ->middleware('can:students.view')
             ->name('assessments.create');
@@ -508,6 +505,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{student}/technical-sheet', [StudentTechnicalSheetController::class, 'show'])
             ->middleware('can:students.view')
             ->name('technical-sheet');
+        Route::get('/{student}/technical-sheet/print', [StudentTechnicalSheetController::class, 'printReport'])
+            ->middleware('can:students.view')
+            ->name('technical-sheet.print');
         Route::get('/{student}/workouts', [StudentTechnicalSheetController::class, 'workouts'])
             ->middleware('can:students.view')
             ->name('workouts');

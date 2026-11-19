@@ -150,7 +150,7 @@
                                         <a href="{{ route('students.show', $student) }}" class="p-2 text-text-secondary hover:text-cyan" title="Ver aluno">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="{{ route('students.assessment', $student) }}" class="p-2 text-text-secondary hover:text-cyan" title="Ficha">
+                                        <a href="{{ route('students.technical-sheet', $student) }}" class="p-2 text-text-secondary hover:text-cyan" title="Ficha">
                                             <i class="fas fa-clipboard-check"></i>
                                         </a>
                                         <a href="{{ route('students.technical-sheet', $student) }}" class="p-2 text-text-secondary hover:text-cyan" title="Ficha técnica">

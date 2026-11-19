@@ -55,7 +55,7 @@
                 <div class="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                     @foreach ($muscleGroups as $group)
                         <button type="button" onclick="openMuscleGroupModal(@js($group['group']))"
-                                class="w-full rounded-xl border border-custom bg-bg-secondary p-2.5 text-left transition-colors hover:border-cyan">
+                                class="interactive-item w-full cursor-pointer rounded-xl border border-custom bg-bg-secondary p-2.5 text-left transition-colors hover:border-cyan">
                             <div class="flex items-center justify-between gap-2 text-xs">
                                 <span class="truncate font-medium">{{ $group['label'] }}</span>
                                 <span class="shrink-0 text-text-secondary">{{ $group['percent'] }}%</span>

@@ -997,3 +997,52 @@ body.sidebar-open {
         min-width: 0;
     }
 }
+
+/* Animated charts */
+@keyframes grow-bar-x {
+    from {
+        transform: scaleX(0);
+    }
+    to {
+        transform: scaleX(1);
+    }
+}
+
+@keyframes grow-bar-y {
+    from {
+        transform: scaleY(0);
+    }
+    to {
+        transform: scaleY(1);
+    }
+}
+
+.animate-progress {
+    transform-origin: left center;
+    animation: grow-bar-x 0.8s ease-out both;
+}
+
+.animate-column {
+    transform-origin: bottom center;
+    animation: grow-bar-y 0.8s ease-out both;
+}
+
+.donut-segment {
+    transition: stroke-dasharray 1s ease-out;
+}
+
+/* Interactive selectable cards */
+.interactive-item {
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.interactive-item:hover {
+    border-color: var(--color-primary);
+    background-color: var(--color-surface-elevated);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+.interactive-item:active {
+    transform: scale(0.995);
+}
